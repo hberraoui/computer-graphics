@@ -40,54 +40,66 @@ int main(int argc, char* argv[])
 
 float interpolationStep(float start, float to, float from, int steps)
 {
-    return start + (to - from) / steps;
+  return start + (to - from) / steps;
 }
 
 std::vector<float> interpolate(float from, float to, int numberOfValues)
 {
-    std::vector<float> v = { from };
+  std::vector<float> v = { from };
     
-    int steps = numberOfValues - 1;
-    for (int i = 0; i < steps; ++i) {
-        v.push_back(interpolationStep(v.back(),to,from,steps));
-    }
-
-    return v;
+  int steps = numberOfValues - 1;
+  for (int i = 0; i < steps; ++i) {
+    v.push_back(interpolationStep(v.back(),to,from,steps));
+  }
+  
+  return v;
 }
 
 std::vector<vec3> interpolate(vec3 from, vec3 to, int numberOfValues)
 {
-    std::vector<vec3> v = { from };
+  std::vector<vec3> v = { from };
     
-    int steps = numberOfValues - 1;
-    for (int i = 0; i < steps; ++i) {
-        vec3 newvec(interpolationStep(v.back().x,to.x,from.x,steps),
-                    interpolationStep(v.back().y,to.y,from.y,steps),
-                    interpolationStep(v.back().z,to.z,from.z,steps));
-        v.push_back(newvec);
-    }
+  int steps = numberOfValues - 1;
+  for (int i = 0; i < steps; ++i) {
+    vec3 newvec(interpolationStep(v.back().x,to.x,from.x,steps),
+                interpolationStep(v.back().y,to.y,from.y,steps),
+                interpolationStep(v.back().z,to.z,from.z,steps));
+    v.push_back(newvec);
+  }
 
-    return v;
+  return v;
 }
 
 uint32_t vec3ToColour(vec3 pixel)
 {
-    return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
+  return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
 }
 
 vec3 colourToVec3(uint32_t colour)
 {
-    vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
-    return result;
+  vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
+  return result;
 }
-
+void drawLine(float x, float y, Colour colour);
 void draw()
 {
-    // greyscaleInterpolation();
-    // rainbowInterpolation();
+  // greyscaleInterpolation();
+  // rainbowInterpolation();
+  Colour colour;
+  colour.red = 255;
+  colour.blue = 255;
+  colour.green = 255;
+  drawLine(20,32,colour);
 }
 
-void greyscaleInterpolation() {
+void drawLine(float x, float y, Colour colour)
+{
+  // Function for drawing lines
+  cout << "Drawing line from " << x << " to " << y;
+}
+
+void greyscaleInterpolation()
+{
   window.clearPixels();
   std::vector<float> v;
   v = interpolate(0, 255, window.width);
@@ -99,7 +111,8 @@ void greyscaleInterpolation() {
   }
 }
 
-void rainbowInterpolation() {
+void rainbowInterpolation()
+{
   window.clearPixels();
   vec3 redPixel(255,0,0);
   vec3 bluePixel(0,0,255);
@@ -148,6 +161,6 @@ void handleEvent(SDL_Event event)
 // For the sake of Windows
 int WinMain(int argc, char* argv[])
 {
-    main(argc, argv);
-    return 0;
+  main(argc, argv);
+  return 0;
 }
