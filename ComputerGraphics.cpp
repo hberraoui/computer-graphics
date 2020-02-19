@@ -16,29 +16,15 @@ void draw();
 void update();
 void handleEvent(SDL_Event event);
 
-void debug();
+void rainbowInterpolation();
 float interpolationStep(float start, float to, float from, int steps);
 std::vector<float> interpolate(float from, float to, int numberOfValues);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int numberOfValues);
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 
-void debug()
-{
-  vec3 from(1, 4, 9.2);
-  vec3 to(4, 1, 9.8);
-  std::vector<vec3> v = interpolate(from, to, 4);
-
-  for(unsigned int n = 0; n < v.size(); n++) {
-      printf("(%.2f, %.2f, %.2f)\n",v.at(n).x,v.at(n).y,v.at(n).z);      
-  }
-}
-
 int main(int argc, char* argv[])
 {
-  // Use this for console logging
-  // debug();
-  
   SDL_Event event;
   while(true)
   {
@@ -96,6 +82,10 @@ vec3 colourToVec3(uint32_t colour)
 
 void draw()
 {
+    rainbowInterpolation();
+}
+
+void rainbowInterpolation() {
   window.clearPixels();
   vec3 redPixel(255,0,0);
   vec3 bluePixel(0,0,255);
