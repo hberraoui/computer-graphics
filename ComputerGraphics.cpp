@@ -81,7 +81,7 @@ vec3 colourToVec3(uint32_t colour)
   vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
   return result;
 }
-void drawLine(float fromX, float fromY, float toX, float toY, Colour colour);
+void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
 void draw()
 {
   if (!drawnOnce) {
@@ -91,23 +91,29 @@ void draw()
     colour.red = 255;
     colour.blue = 255;
     colour.green = 255;
-    drawLine(20,32,10,33,colour);
+    CanvasPoint from;
+    from.x = 30;
+    from.y = 32;
+    CanvasPoint to;
+    to.x = 10;
+    to.y = 33;
+    drawLine(from, to, colour);
     drawnOnce = true;
   }
 }
 
-void drawLine(float fromX, float fromY, float toX, float toY, Colour colour)
+void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
   // Function for drawing lines
-  cout << "Drawing line from (" << fromX << "," << fromY << ") to (" << toX << "," << toY << ")" << endl;
-  float xDiff = toX - fromX;
-  float yDiff = toY - fromY;
+  cout << "Drawing line from (" << from.x << "," << from.y << ") to (" << to.x << "," << to.y << ")" << endl;
+  float xDiff = to.x - from.x;
+  float yDiff = to.y - from.y;
   float numberOfSteps = std::max(abs(xDiff), abs(yDiff));
   float xStepSize = xDiff / numberOfSteps;
   float yStepSize = yDiff / numberOfSteps;
   for (float i=0.0; i<numberOfSteps; i++) {
-    float x = fromX + (xStepSize*i);
-    float y = fromY + (yStepSize*i);
+    float x = from.x + (xStepSize*i);
+    float y = from.y + (yStepSize*i);
     window.setPixelColour(round(x), round(y), colour.toPackedInt());
   }  
 }
