@@ -21,13 +21,13 @@ void handleEvent(SDL_Event event);
 void greyscaleInterpolation();
 void rainbowInterpolation();
 void drawLineWrapper();
-void drawStrokedTriangleWrapper();
 
 float interpolationStep(float start, float to, float from, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
+void drawRandomStrokedTriangle();
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 
@@ -92,18 +92,18 @@ void draw()
     //greyscaleInterpolation();
     //rainbowInterpolation();
     //drawLineWrapper();
-    drawStrokedTriangleWrapper();
+    drawRandomStrokedTriangle();
 
     drawnOnce = true;
   }
 }
 
-void drawStrokedTriangleWrapper()
-{
-  CanvasPoint v0 = CanvasPoint(10, 20);
-  CanvasPoint v1 = CanvasPoint(50, 50);
-  CanvasPoint v2 = CanvasPoint(30, 50);
-  Colour colour = Colour(255,0,0);
+void drawRandomStrokedTriangle()
+{    
+  CanvasPoint v0 = CanvasPoint(rand() % window.width, rand() % window.height);
+  CanvasPoint v1 = CanvasPoint(rand() % window.width, rand() % window.height);
+  CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
+  Colour colour = Colour(rand() % 255, rand() % 255, rand() % 255);
   CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
   
   drawStrokedTriangle(triangle);
@@ -210,6 +210,7 @@ void handleEvent(SDL_Event event)
     else if(event.key.keysym.sym == SDLK_RIGHT) cout << "RIGHT" << endl;
     else if(event.key.keysym.sym == SDLK_UP) cout << "UP" << endl;
     else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
+    else if(event.key.keysym.sym == SDLK_u) drawRandomStrokedTriangle();
   }
   else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
 }
