@@ -15,6 +15,7 @@ using namespace glm;
 void draw();
 void update();
 void handleEvent(SDL_Event event);
+bool drawnOnce = 0;
 
 void greyscaleInterpolation();
 void rainbowInterpolation();
@@ -70,7 +71,7 @@ std::vector<vec3> interpolate(vec3 from, vec3 to, int numberOfValues)
   return v;
 }
 
-uint32_t vec3ToColour(vec3 pixel)
+uint32_t vec3ToPackedInt(vec3 pixel)
 {
   return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
 }
@@ -80,22 +81,35 @@ vec3 colourToVec3(uint32_t colour)
   vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
   return result;
 }
-void drawLine(float x, float y, Colour colour);
+void drawLine(float fromX, float fromY, float toX, float toY, Colour colour);
 void draw()
 {
-  // greyscaleInterpolation();
-  // rainbowInterpolation();
-  Colour colour;
-  colour.red = 255;
-  colour.blue = 255;
-  colour.green = 255;
-  drawLine(20,32,colour);
+  if (!drawnOnce) {
+    // greyscaleInterpolation();
+    // rainbowInterpolation();
+    Colour colour;
+    colour.red = 255;
+    colour.blue = 255;
+    colour.green = 255;
+    drawLine(20,32,10,33,colour);
+    drawnOnce = true;
+  }
 }
 
-void drawLine(float x, float y, Colour colour)
+void drawLine(float fromX, float fromY, float toX, float toY, Colour colour)
 {
   // Function for drawing lines
-  cout << "Drawing line from " << x << " to " << y;
+  cout << "Drawing line from (" << fromX << "," << fromY << ") to (" << toX << "," << toY << ")" << endl;
+  float xDiff = toX - fromX;
+  float yDiff = toY - fromY;
+  float numberOfSteps = std::max(abs(xDiff), abs(yDiff));
+  float xStepSize = xDiff / numberOfSteps;
+  float yStepSize = yDiff / numberOfSteps;
+  for (float i=0.0; i<numberOfSteps; i++) {
+    float x = fromX + (xStepSize*i);
+    float y = fromY + (yStepSize*i);
+    window.setPixelColour(round(x), round(y), colour.toPackedInt());
+  }  
 }
 
 void greyscaleInterpolation()
@@ -106,7 +120,7 @@ void greyscaleInterpolation()
   for(int y=0; y<window.height; y++) {
     for(int x=0; x<window.width; x++) {
       vec3 c(v.at(x), v.at(x), v.at(x));
-      window.setPixelColour(x, y, vec3ToColour(c));
+      window.setPixelColour(x, y, vec3ToPackedInt(c));
     }
   }
 }
@@ -118,18 +132,18 @@ void rainbowInterpolation()
   vec3 bluePixel(0,0,255);
   vec3 yellowPixel(255,255,0);
   vec3 greenPixel(0,255,0);
-  window.setPixelColour(0, window.height-1, vec3ToColour(yellowPixel));
-  window.setPixelColour(window.width-1, window.height-1, vec3ToColour(greenPixel));
+  window.setPixelColour(0, window.height-1, vec3ToPackedInt(yellowPixel));
+  window.setPixelColour(window.width-1, window.height-1, vec3ToPackedInt(greenPixel));
   
   std::vector<vec3> v;
   v = interpolate(redPixel, yellowPixel, window.height);
   for(int y=0; y<window.height; y++) {
-    window.setPixelColour(0, y, vec3ToColour(v.at(y)));
+    window.setPixelColour(0, y, vec3ToPackedInt(v.at(y)));
   }
   
   v = interpolate(bluePixel, greenPixel, window.height);
   for(int y=0; y<window.height; y++) {
-    window.setPixelColour(window.width-1, y, vec3ToColour(v.at(y)));
+    window.setPixelColour(window.width-1, y, vec3ToPackedInt(v.at(y)));
   }
 
   for(int y=0; y<window.height; y++) {
@@ -137,7 +151,7 @@ void rainbowInterpolation()
                     colourToVec3(window.getPixelColour(window.width-1,y)),
                     window.width);
     for(int x=0; x<window.width; x++) {
-      window.setPixelColour(x, y, vec3ToColour(v.at(x)));
+      window.setPixelColour(x, y, vec3ToPackedInt(v.at(x)));
     }
   }
 }
