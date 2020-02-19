@@ -21,11 +21,13 @@ void handleEvent(SDL_Event event);
 void greyscaleInterpolation();
 void rainbowInterpolation();
 void drawLineWrapper();
+void drawStrokedTriangleWrapper();
 
 float interpolationStep(float start, float to, float from, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
+void drawStrokedTriangle(CanvasTriangle triangle);
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 
@@ -89,34 +91,47 @@ void draw()
   if (!drawnOnce) {
     //greyscaleInterpolation();
     //rainbowInterpolation();
-    drawLineWrapper();
-    
+    //drawLineWrapper();
+    drawStrokedTriangleWrapper();
+
     drawnOnce = true;
   }
 }
 
+void drawStrokedTriangleWrapper()
+{
+  CanvasPoint v0 = CanvasPoint(10, 20);
+  CanvasPoint v1 = CanvasPoint(50, 50);
+  CanvasPoint v2 = CanvasPoint(30, 50);
+  Colour colour = Colour(255,0,0);
+  CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
+  
+  drawStrokedTriangle(triangle);
+}
+
+void drawStrokedTriangle(CanvasTriangle triangle)
+{
+  // Function for a stroked triangle
+  cout << "[DRAW STROKED TRIANGLE]:" << endl << triangle;
+  
+  drawLine(triangle.vertices[0], triangle.vertices[1], triangle.colour);
+  drawLine(triangle.vertices[0], triangle.vertices[2], triangle.colour);
+  drawLine(triangle.vertices[1], triangle.vertices[2], triangle.colour);
+}
+
 void drawLineWrapper()
 {
-  Colour colour;
-  colour.red = 255;
-  colour.blue = 255;
-  colour.green = 255;
-  
-  CanvasPoint from;
-  from.x = 10;
-  from.y = 20;
-  
-  CanvasPoint to;
-  to.x = 50;
-  to.y = 50;
-  
+  CanvasPoint from = CanvasPoint(10, 20);
+  CanvasPoint to = CanvasPoint(50, 50);
+  Colour colour = Colour(255,255,255);
+
   drawLine(from, to, colour);
 }
 
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
   // Function for drawing lines
-  cout << "Drawing line from (" << from.x << "," << from.y << ") to (" << to.x << "," << to.y << ")" << endl;
+  cout << "[DRAW LINE]: from " << from << "[DRAW LINE]: to " << to << "[DRAW LINE]: colour " << colour << endl;
   
   vec3 fromVec(from.x,from.y,colour.toPackedInt());
   vec3 toVec(to.x,to.y,colour.toPackedInt());
@@ -135,6 +150,9 @@ void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 
 void rainbowInterpolation()
 {
+  // Function for drawing two dimension colour interpolation
+  cout << "[DRAW 2D COLOUR INTERPOLATION RAINBOW]" << endl;
+  
   window.clearPixels();
   vec3 redPixel(255,0,0);
   vec3 bluePixel(0,0,255);
@@ -166,6 +184,9 @@ void rainbowInterpolation()
 
 void greyscaleInterpolation()
 {
+  // Function for drawing one dimension greyscale interpolation
+  cout << "[DRAW 1D GREYSCALE INTERPOLATION GRADIENT]" << endl;
+  
   window.clearPixels();
   std::vector<float> v;
   v = interpolate(0, 255, window.width);
