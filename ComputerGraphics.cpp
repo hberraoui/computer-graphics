@@ -16,6 +16,7 @@ void draw();
 void update();
 void handleEvent(SDL_Event event);
 
+void greyscaleInterpolation();
 void rainbowInterpolation();
 float interpolationStep(float start, float to, float from, int steps);
 std::vector<float> interpolate(float from, float to, int numberOfValues);
@@ -82,7 +83,20 @@ vec3 colourToVec3(uint32_t colour)
 
 void draw()
 {
-    rainbowInterpolation();
+    // greyscaleInterpolation();
+    // rainbowInterpolation();
+}
+
+void greyscaleInterpolation() {
+  window.clearPixels();
+  std::vector<float> v;
+  v = interpolate(0, 255, window.width);
+  for(int y=0; y<window.height; y++) {
+    for(int x=0; x<window.width; x++) {
+      vec3 c(v.at(x), v.at(x), v.at(x));
+      window.setPixelColour(x, y, vec3ToColour(c));
+    }
+  }
 }
 
 void rainbowInterpolation() {
@@ -91,8 +105,8 @@ void rainbowInterpolation() {
   vec3 bluePixel(0,0,255);
   vec3 yellowPixel(255,255,0);
   vec3 greenPixel(0,255,0);
-  window.setPixelColour(0, window.height-1, vec3ToColour( yellowPixel));
-  window.setPixelColour(window.width-1, window.height-1, vec3ToColour( greenPixel));
+  window.setPixelColour(0, window.height-1, vec3ToColour(yellowPixel));
+  window.setPixelColour(window.width-1, window.height-1, vec3ToColour(greenPixel));
   
   std::vector<vec3> v;
   v = interpolate(redPixel, yellowPixel, window.height);
