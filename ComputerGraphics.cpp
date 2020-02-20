@@ -102,7 +102,7 @@ void draw()
 }
 
 void drawRandomFilledTriangle()
-{    
+{
   CanvasPoint v0 = CanvasPoint(rand() % window.width, rand() % window.height);
   CanvasPoint v1 = CanvasPoint(rand() % window.width, rand() % window.height);
   CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
@@ -119,13 +119,16 @@ void drawFilledTriangle(CanvasTriangle triangle)
   
   //TODO: Implement rasterisation algorithm:
   //Sort vertices by vertical position (top to bottom)
+  triangle.sortVerticesByVerticalPos();  
+  cout << "[TRIANGLE WITH SORTED VERTICES]:" << endl << triangle;
+
   //Divide triangle into 2 "flat-bottomed" triangles
   //Fill top triangle (top-to-bottom, left-to-right)
   //Fill bottom triangle (top-to-bottom, left-to-right)
 }
 
 void drawRandomStrokedTriangle()
-{    
+{
   CanvasPoint v0 = CanvasPoint(rand() % window.width, rand() % window.height);
   CanvasPoint v1 = CanvasPoint(rand() % window.width, rand() % window.height);
   CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
