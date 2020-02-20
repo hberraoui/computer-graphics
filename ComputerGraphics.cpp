@@ -28,6 +28,8 @@ std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
 void drawRandomStrokedTriangle();
+void drawFilledTriangle(CanvasTriangle triangle);
+void drawRandomFilledTriangle();
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 
@@ -92,10 +94,34 @@ void draw()
     //greyscaleInterpolation();
     //rainbowInterpolation();
     //drawLineWrapper();
-    drawRandomStrokedTriangle();
+    //drawRandomStrokedTriangle();
+    drawRandomFilledTriangle();
 
     drawnOnce = true;
   }
+}
+
+void drawRandomFilledTriangle()
+{    
+  CanvasPoint v0 = CanvasPoint(rand() % window.width, rand() % window.height);
+  CanvasPoint v1 = CanvasPoint(rand() % window.width, rand() % window.height);
+  CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
+  Colour colour = Colour(rand() % 255, rand() % 255, rand() % 255);
+  CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
+  
+  drawFilledTriangle(triangle);
+}
+
+void drawFilledTriangle(CanvasTriangle triangle)
+{
+  // Function for a filled triangle
+  cout << "[DRAW FILLED TRIANGLE]:" << endl << triangle;
+  
+  //TODO: Implement rasterisation algorithm:
+  //Sort vertices by vertical position (top to bottom)
+  //Divide triangle into 2 "flat-bottomed" triangles
+  //Fill top triangle (top-to-bottom, left-to-right)
+  //Fill bottom triangle (top-to-bottom, left-to-right)
 }
 
 void drawRandomStrokedTriangle()
@@ -211,6 +237,7 @@ void handleEvent(SDL_Event event)
     else if(event.key.keysym.sym == SDLK_UP) cout << "UP" << endl;
     else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
     else if(event.key.keysym.sym == SDLK_u) drawRandomStrokedTriangle();
+    else if(event.key.keysym.sym == SDLK_f) drawRandomFilledTriangle();
   }
   else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
 }
