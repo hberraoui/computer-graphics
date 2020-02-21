@@ -170,7 +170,14 @@ float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
 
   return x;
 }
-    
+
+float findXatYOnLine(float yTarget, TexturePoint from, TexturePoint to)
+{
+  CanvasPoint fromNew(from.x,from.y);
+  CanvasPoint toNew(to.x,to.y);
+  return findXatYOnLine(yTarget,fromNew,toNew);
+}
+
 bool drawPixelMap(PixelMap img, int startX, int startY)
 {
   if (img.pixels.size() > 0) {
@@ -260,10 +267,10 @@ void textureMappingTask()
     
     CanvasTriangle t(v0,v1,v2,WHITE);
     
-    drawStrokedTriangle(t);
-    
     PixelMap img = loadPixelMap("texture.ppm");
     drawFilledTriangle(t, img);
+    
+    drawStrokedTriangle(t);
 }
 
 void drawRandomFilledTriangle()
@@ -279,30 +286,39 @@ void drawRandomFilledTriangle()
 
 void drawFilledTriangle(CanvasTriangle t, PixelMap img)
 {
-  // TODO: Properly implement
-  cout << "TASK 5: Texture Mapping" << endl;
+  // TODO: Properly implement Task 5: Texture Mapping
   Colour colour = WHITE; // just so the copied over function works for now
-    
+
   // Sort vertices by vertical position (top to bottom)
   t.sortVertices();
-  
+
   // Divide triangle into 2 "flat-bottomed" triangles
-  CanvasPoint v;
-  v.y = t.vertices[1].y;
-  v.x = findXatYOnLine(v.y, t.vertices[0], t.vertices[2]);
+  float vy = t.vertices[1].y;
+  float vx = findXatYOnLine(vy, t.vertices[0], t.vertices[2]);
+  
+  float vty = t.vertices[1].texturePoint.y;
+  float vtx = findXatYOnLine(vty, t.vertices[0].texturePoint, t.vertices[2].texturePoint);
+  TexturePoint tp = TexturePoint(vtx,vty);
+  CanvasPoint v(vx,vy,tp);
+  
+  cout << v << "TexturePoint: " << v.texturePoint;
+  
   CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
   CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
-  drawStrokedTriangle(topT, colour);
-  drawStrokedTriangle(bottomT, colour);
 
   // Fill top triangle (top-to-bottom, left-to-right)
-  fillFlatBottomTriangle(topT, colour);
+  for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
+    float startX = findXatYOnLine(y, topT.vertices[0], topT.vertices[1]);
+    float endX = findXatYOnLine(y, topT.vertices[0], topT.vertices[2]);
+    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), RED);
+  }
   
   // Fill bottom triangle (top-to-bottom, left-to-right)
-  fillFlatTopTriangle(bottomT, colour);
-  
-  // Test the fill is accurate by drawing the original triangle
-  drawStrokedTriangle(t, WHITE);
+  for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
+    float startX = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
+    float endX = findXatYOnLine(y, bottomT.vertices[1], bottomT.vertices[2]);
+    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), BLUE);
+  }
 }
 
 void drawFilledTriangle(CanvasTriangle t, Colour colour)
@@ -311,13 +327,11 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
   t.sortVertices();
   
   // Divide triangle into 2 "flat-bottomed" triangles
-  CanvasPoint v;
-  v.y = t.vertices[1].y;
-  v.x = findXatYOnLine(v.y, t.vertices[0], t.vertices[2]);
+  float vy = t.vertices[1].y;
+  float vx = findXatYOnLine(vy, t.vertices[0], t.vertices[2]);
+  CanvasPoint v(vx,vy);
   CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
   CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
-  drawStrokedTriangle(topT, colour);
-  drawStrokedTriangle(bottomT, colour);
 
   // Fill top triangle (top-to-bottom, left-to-right)
   fillFlatBottomTriangle(topT, colour);
