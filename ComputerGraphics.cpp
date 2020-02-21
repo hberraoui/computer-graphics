@@ -32,7 +32,8 @@ float findXatYOnLine(float y, CanvasPoint from, CanvasPoint to);
 void drawRandomFilledTriangle();
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
 void drawFilledTriangle(CanvasTriangle triangle);
-void drawFilledFlatBottomTriangle(CanvasTriangle t, Colour c);
+void fillFlatBottomTriangle(CanvasTriangle t, Colour c);
+void fillFlatTopTriangle(CanvasTriangle t, Colour c);
 void drawRandomStrokedTriangle();
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
@@ -198,8 +199,10 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
   drawStrokedTriangle(bottomT, colour);
 
   // Fill top triangle (top-to-bottom, left-to-right)
+  fillFlatBottomTriangle(topT, colour);
   
   // Fill bottom triangle (top-to-bottom, left-to-right)
+  fillFlatTopTriangle(bottomT, colour);
   
   drawStrokedTriangle(t, WHITE);
 }
@@ -209,16 +212,22 @@ void drawFilledTriangle(CanvasTriangle t)
   drawFilledTriangle(t, t.colour);
 }
 
-void drawFilledFlatBottomTriangle(CanvasTriangle t, Colour c)
+void fillFlatBottomTriangle(CanvasTriangle t, Colour c)
 {
-  int top = std::min(t.vertices[0].y,t.vertices[2].y);
-  int bottom = std::max(t.vertices[0].y,t.vertices[2].y);
-  for (int y = top; y <= bottom; ++y) {
+  for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
     float startX = findXatYOnLine(y, t.vertices[0], t.vertices[1]);
     float endX = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
     drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), c);
   }
-  drawLine(t.vertices[1], t.vertices[2], c);
+}
+
+void fillFlatTopTriangle(CanvasTriangle t, Colour c)
+{
+  for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
+    float startX = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
+    float endX = findXatYOnLine(y, t.vertices[1], t.vertices[2]);
+    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), c);
+  }
 }
 
 void drawRandomStrokedTriangle()
