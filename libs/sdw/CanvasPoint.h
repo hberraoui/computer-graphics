@@ -42,6 +42,15 @@ class CanvasPoint
       texturePoint = TexturePoint(-1,-1);
     }
 
+    CanvasPoint(float xPos, float yPos, TexturePoint tPoint)
+    {
+      x = xPos;
+      y = yPos;
+      depth = 0.0;
+      brightness = 1.0;
+      texturePoint = tPoint;
+    }
+
 };
 
 std::ostream& operator<<(std::ostream& os, const CanvasPoint& point)

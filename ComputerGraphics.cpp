@@ -31,8 +31,9 @@ float findXatYOnLine(float y, CanvasPoint from, CanvasPoint to);
 bool drawPixelMap(PixelMap img, int startX, int startY);
 bool drawPixelMap(PixelMap img);
 PixelMap loadPixelMap(string fn);
-void displayImage();
+void textureMappingTask();
 void drawRandomFilledTriangle();
+void drawFilledTriangle(CanvasTriangle t, PixelMap img);
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
 void drawFilledTriangle(CanvasTriangle triangle);
 void fillFlatBottomTriangle(CanvasTriangle t, Colour c);
@@ -51,7 +52,7 @@ DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 int main(int argc, char* argv[])
 {
   SDL_Event event;
-  displayImage();
+  textureMappingTask();
   while(true)
   {
     // We MUST poll for events - otherwise the window will freeze !
@@ -247,10 +248,22 @@ PixelMap loadPixelMap(string fn)
   return img;
 }
 
-void displayImage()
+void textureMappingTask()
 {
-    PixelMap img = loadPixelMap("texture.ppm");  
-    drawPixelMap(img);
+    TexturePoint t0(195,5);
+    TexturePoint t1(395,380);
+    TexturePoint t2(65,330);
+    
+    CanvasPoint v0(160,10,t0);
+    CanvasPoint v1(300,230,t1);
+    CanvasPoint v2(10,150,t2);
+    
+    CanvasTriangle t(v0,v1,v2,WHITE);
+    
+    drawStrokedTriangle(t);
+    
+    PixelMap img = loadPixelMap("texture.ppm");
+    drawFilledTriangle(t, img);
 }
 
 void drawRandomFilledTriangle()
@@ -262,6 +275,34 @@ void drawRandomFilledTriangle()
   CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
   
   drawFilledTriangle(triangle);
+}
+
+void drawFilledTriangle(CanvasTriangle t, PixelMap img)
+{
+  // TODO: Properly implement
+  cout << "TASK 5: Texture Mapping" << endl;
+  Colour colour = WHITE; // just so the copied over function works for now
+    
+  // Sort vertices by vertical position (top to bottom)
+  t.sortVertices();
+  
+  // Divide triangle into 2 "flat-bottomed" triangles
+  CanvasPoint v;
+  v.y = t.vertices[1].y;
+  v.x = findXatYOnLine(v.y, t.vertices[0], t.vertices[2]);
+  CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
+  CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
+  drawStrokedTriangle(topT, colour);
+  drawStrokedTriangle(bottomT, colour);
+
+  // Fill top triangle (top-to-bottom, left-to-right)
+  fillFlatBottomTriangle(topT, colour);
+  
+  // Fill bottom triangle (top-to-bottom, left-to-right)
+  fillFlatTopTriangle(bottomT, colour);
+  
+  // Test the fill is accurate by drawing the original triangle
+  drawStrokedTriangle(t, WHITE);
 }
 
 void drawFilledTriangle(CanvasTriangle t, Colour colour)
