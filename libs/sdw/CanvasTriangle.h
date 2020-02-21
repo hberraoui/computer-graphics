@@ -27,7 +27,7 @@ class CanvasTriangle
       colour = c;
     }
 
-    void sortVerticesByVerticalPos()
+    void sortVertices()
     {
       int n = sizeof(vertices) / sizeof(vertices[0]);
       bool swapped;

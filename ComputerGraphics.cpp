@@ -11,25 +11,37 @@ using namespace glm;
 
 #define WIDTH 320
 #define HEIGHT 240
+#define WHITE Colour(255,255,255)
+#define RED Colour(255,0,0)
+#define GREEN Colour(0,255,0)
+#define BLUE Colour(0,0,255)
+#define BLACK Colour(0,0,0)
 
 bool drawnOnce = false;
 
 void draw();
 void update();
 void handleEvent(SDL_Event event);
-
-void greyscaleInterpolation();
-void rainbowInterpolation();
-void drawLineWrapper();
-
 float interpolationStep(float start, float to, float from, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
-void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
-void drawStrokedTriangle(CanvasTriangle triangle);
-void drawRandomStrokedTriangle();
-void drawFilledTriangle(CanvasTriangle triangle);
+std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps);
+int calcSteps(vec3 from, vec3 to);
+int calcSteps(CanvasPoint from, CanvasPoint to);
+float findXatYOnLine(float y, CanvasPoint from, CanvasPoint to);
 void drawRandomFilledTriangle();
+void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
+void drawFilledTriangle(CanvasTriangle triangle);
+void drawFilledFlatBottomTriangle(CanvasTriangle t, Colour c);
+void drawRandomStrokedTriangle();
+void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
+void drawStrokedTriangle(CanvasTriangle triangle);
+void drawLineWrapper();
+void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
+uint32_t vec3ToPackedInt(vec3 pixel);
+vec3 packedIntToVec3(uint32_t colour);
+void rainbowInterpolation();
+void greyscaleInterpolation();
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 
@@ -45,6 +57,45 @@ int main(int argc, char* argv[])
     // Need to render the frame at the end, or nothing actually gets shown on the screen !
     window.renderFrame();
   }
+}
+
+// For the sake of Windows
+int WinMain(int argc, char* argv[])
+{
+  main(argc, argv);
+  return 0;
+}
+
+void draw()
+{
+  if (!drawnOnce) {
+    //greyscaleInterpolation();
+    //rainbowInterpolation();
+    //drawLineWrapper();
+    //drawRandomStrokedTriangle();
+    CanvasTriangle t = CanvasTriangle(CanvasPoint(227,41),CanvasPoint(260,94),CanvasPoint(44,209),RED);
+    drawFilledTriangle(t);
+
+    drawnOnce = true;
+  }
+}
+
+void update()
+{
+  // Function for performing animation (shifting artifacts or moving the camera)
+}
+
+void handleEvent(SDL_Event event)
+{
+  if(event.type == SDL_KEYDOWN) {
+    if(event.key.keysym.sym == SDLK_LEFT) cout << "LEFT" << endl;
+    else if(event.key.keysym.sym == SDLK_RIGHT) cout << "RIGHT" << endl;
+    else if(event.key.keysym.sym == SDLK_UP) cout << "UP" << endl;
+    else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
+    else if(event.key.keysym.sym == SDLK_u) drawRandomStrokedTriangle();
+    else if(event.key.keysym.sym == SDLK_f) drawRandomFilledTriangle();
+  }
+  else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
 }
 
 float interpolationStep(float start, float to, float from, int steps)
@@ -77,28 +128,42 @@ std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
   return v;
 }
 
-uint32_t vec3ToPackedInt(vec3 pixel)
+std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps)
 {
-  return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
+  vec3 fromVec(from.x,from.y,0);
+  vec3 toVec(to.x,to.y,0);
+
+  return interpolate(fromVec,toVec,steps);
 }
 
-vec3 packedIntToVec3(uint32_t colour)
-{
-  vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
-  return result;
+int calcSteps(vec3 from, vec3 to)
+{    
+  float xDiff = to.x - from.x;
+  float yDiff = to.y - from.y;
+  return round(std::max(abs(xDiff), abs(yDiff)));
 }
 
-void draw()
-{
-  if (!drawnOnce) {
-    //greyscaleInterpolation();
-    //rainbowInterpolation();
-    //drawLineWrapper();
-    //drawRandomStrokedTriangle();
-    drawRandomFilledTriangle();
+int calcSteps(CanvasPoint from, CanvasPoint to)
+{    
+  float xDiff = to.x - from.x;
+  float yDiff = to.y - from.y;
+  return round(std::max(abs(xDiff), abs(yDiff)));
+}
 
-    drawnOnce = true;
-  }
+float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
+{
+  float x = 0;
+  
+  int steps = calcSteps(from,to);  
+  std::vector<vec3> xys = interpolate(from, to, steps);
+  for (int i=0; i<steps; i++) {
+      if (round(xys.at(i).y) == round(yTarget)) {
+          x = xys.at(i).x;
+          break;
+      }
+  }  
+
+  return x;
 }
 
 void drawRandomFilledTriangle()
@@ -112,19 +177,48 @@ void drawRandomFilledTriangle()
   drawFilledTriangle(triangle);
 }
 
-void drawFilledTriangle(CanvasTriangle triangle)
+CanvasPoint deriveNewVertex(CanvasTriangle t)
+{
+    float y = t.vertices[1].y;
+    float x = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
+    return CanvasPoint(x,y);
+}
+
+void drawFilledTriangle(CanvasTriangle t, Colour colour)
 {
   // Function for a filled triangle
-  cout << "[DRAW FILLED TRIANGLE]:" << endl << triangle;
+  // Sort vertices by vertical position (top to bottom)
+  t.sortVertices();
   
-  //TODO: Implement rasterisation algorithm:
-  //Sort vertices by vertical position (top to bottom)
-  triangle.sortVerticesByVerticalPos();  
-  cout << "[TRIANGLE WITH SORTED VERTICES]:" << endl << triangle;
+  // Divide triangle into 2 "flat-bottomed" triangles
+  CanvasPoint v = deriveNewVertex(t);
+  CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
+  CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
+  drawStrokedTriangle(topT, colour);
+  drawStrokedTriangle(bottomT, colour);
 
-  //Divide triangle into 2 "flat-bottomed" triangles
-  //Fill top triangle (top-to-bottom, left-to-right)
-  //Fill bottom triangle (top-to-bottom, left-to-right)
+  // Fill top triangle (top-to-bottom, left-to-right)
+  
+  // Fill bottom triangle (top-to-bottom, left-to-right)
+  
+  drawStrokedTriangle(t, WHITE);
+}
+
+void drawFilledTriangle(CanvasTriangle t)
+{
+  drawFilledTriangle(t, t.colour);
+}
+
+void drawFilledFlatBottomTriangle(CanvasTriangle t, Colour c)
+{
+  int top = std::min(t.vertices[0].y,t.vertices[2].y);
+  int bottom = std::max(t.vertices[0].y,t.vertices[2].y);
+  for (int y = top; y <= bottom; ++y) {
+    float startX = findXatYOnLine(y, t.vertices[0], t.vertices[1]);
+    float endX = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
+    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), c);
+  }
+  drawLine(t.vertices[1], t.vertices[2], c);
 }
 
 void drawRandomStrokedTriangle()
@@ -138,14 +232,17 @@ void drawRandomStrokedTriangle()
   drawStrokedTriangle(triangle);
 }
 
-void drawStrokedTriangle(CanvasTriangle triangle)
+void drawStrokedTriangle(CanvasTriangle triangle, Colour colour)
 {
   // Function for a stroked triangle
-  cout << "[DRAW STROKED TRIANGLE]:" << endl << triangle;
-  
-  drawLine(triangle.vertices[0], triangle.vertices[1], triangle.colour);
-  drawLine(triangle.vertices[0], triangle.vertices[2], triangle.colour);
-  drawLine(triangle.vertices[1], triangle.vertices[2], triangle.colour);
+  drawLine(triangle.vertices[0], triangle.vertices[1], colour);
+  drawLine(triangle.vertices[0], triangle.vertices[2], colour);
+  drawLine(triangle.vertices[1], triangle.vertices[2], colour);
+}
+
+void drawStrokedTriangle(CanvasTriangle triangle)
+{
+  drawStrokedTriangle(triangle, triangle.colour);
 }
 
 void drawLineWrapper()
@@ -160,28 +257,27 @@ void drawLineWrapper()
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
   // Function for drawing lines
-  cout << "[DRAW LINE]: from " << from << "[DRAW LINE]: to " << to << "[DRAW LINE]: colour " << colour << endl;
-  
-  vec3 fromVec(from.x,from.y,colour.toPackedInt());
-  vec3 toVec(to.x,to.y,colour.toPackedInt());
-  
-  float xDiff = to.x - from.x;
-  float yDiff = to.y - from.y;
-  float numberOfSteps = std::max(abs(xDiff), abs(yDiff));
-  
-  std::vector<vec3> xys;
-  xys = interpolate(fromVec, toVec, numberOfSteps);
-
-  for (float i=0.0; i<numberOfSteps; i++) {
+  int steps = calcSteps(from,to);  
+  std::vector<vec3> xys = interpolate(from, to, steps);
+  for (int i=0; i<steps; i++) {
     window.setPixelColour(round(xys.at(i).x), round(xys.at(i).y), colour.toPackedInt());
   }  
 }
 
+uint32_t vec3ToPackedInt(vec3 pixel)
+{
+  return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
+}
+
+vec3 packedIntToVec3(uint32_t colour)
+{
+  vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
+  return result;
+}
+
 void rainbowInterpolation()
 {
-  // Function for drawing two dimension colour interpolation
-  cout << "[DRAW 2D COLOUR INTERPOLATION RAINBOW]" << endl;
-  
+  // Function for drawing two dimension colour interpolation  
   window.clearPixels();
   vec3 redPixel(255,0,0);
   vec3 bluePixel(0,0,255);
@@ -213,9 +309,7 @@ void rainbowInterpolation()
 
 void greyscaleInterpolation()
 {
-  // Function for drawing one dimension greyscale interpolation
-  cout << "[DRAW 1D GREYSCALE INTERPOLATION GRADIENT]" << endl;
-  
+  // Function for drawing one dimension greyscale interpolation  
   window.clearPixels();
   std::vector<float> v;
   v = interpolate(0, 255, window.width);
@@ -225,29 +319,4 @@ void greyscaleInterpolation()
       window.setPixelColour(x, y, vec3ToPackedInt(c));
     }
   }
-}
-
-void update()
-{
-  // Function for performing animation (shifting artifacts or moving the camera)
-}
-
-void handleEvent(SDL_Event event)
-{
-  if(event.type == SDL_KEYDOWN) {
-    if(event.key.keysym.sym == SDLK_LEFT) cout << "LEFT" << endl;
-    else if(event.key.keysym.sym == SDLK_RIGHT) cout << "RIGHT" << endl;
-    else if(event.key.keysym.sym == SDLK_UP) cout << "UP" << endl;
-    else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
-    else if(event.key.keysym.sym == SDLK_u) drawRandomStrokedTriangle();
-    else if(event.key.keysym.sym == SDLK_f) drawRandomFilledTriangle();
-  }
-  else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
-}
-
-// For the sake of Windows
-int WinMain(int argc, char* argv[])
-{
-  main(argc, argv);
-  return 0;
 }
