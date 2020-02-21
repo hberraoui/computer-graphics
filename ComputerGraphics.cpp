@@ -1,6 +1,7 @@
 #include <ModelTriangle.h>
 #include <CanvasTriangle.h>
 #include <DrawingWindow.h>
+#include <PixelMap.h>
 #include <Utils.h>
 #include <glm/glm.hpp>
 #include <fstream>
@@ -9,7 +10,7 @@
 using namespace std;
 using namespace glm;
 
-#define WIDTH 480
+#define WIDTH 430
 #define HEIGHT 395
 #define WHITE Colour(255,255,255)
 #define RED Colour(255,0,0)
@@ -27,6 +28,9 @@ std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps);
 int calcSteps(vec3 from, vec3 to);
 int calcSteps(CanvasPoint from, CanvasPoint to);
 float findXatYOnLine(float y, CanvasPoint from, CanvasPoint to);
+bool drawPixelMap(PixelMap img, int startX, int startY);
+bool drawPixelMap(PixelMap img);
+PixelMap loadPixelMap(string fn);
 void displayImage();
 void drawRandomFilledTriangle();
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
@@ -165,49 +169,88 @@ float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
 
   return x;
 }
+    
+bool drawPixelMap(PixelMap img, int startX, int startY)
+{
+  if (img.pixels.size() > 0) {
+    for (int y = startY; y < img.height; y++) {
+      for (int x = startX; x < img.width; x++) {
+        uint32_t pixel = img.pixels.at(x + img.width*y);
+        if (x < window.width && y < window.height) {
+          window.setPixelColour(x,y,pixel);
+        }
+      }      
+    }
+    return true;
+  }
+  return false;
+}
 
-void displayImage() {
-  string line;
+bool drawPixelMap(PixelMap img)
+{
+  return drawPixelMap(img, 0, 0);
+}
+
+PixelMap loadPixelMap(string fn)
+{
+  PixelMap img;
+  
   std::ifstream ifs;
-  ifs.open("texture.ppm", ios::binary);
+  ifs.open(fn, ios::binary);
   if (ifs.is_open()) {
-    // "magic number" to indicate encoding method (P6)
+    string line;
+    
+    // check for "magic number" to indicate correct encoding method (P6)
     getline(ifs,line);
     if (line != "P6") {
       cout << "ERROR: Unsupported PPM format. Closing file." << endl;
       ifs.close();
-      return;
+      return img;
     }
     
-    // Ignore comments
+    // ignore comments
     getline(ifs,line);
     while (line[0] == '#') getline(ifs,line);
     
-    // image width formatted as an int in ASCII chars
-    float width = std::stoi(line.substr(0, line.find(' ')));
+    // read image width
+    int width = std::stoi(line.substr(0, line.find(' ')));
     
-    // image height formatted as an int in ASCII chars
-    float height = std::stoi(line.substr(line.find(' '), line.length()));
+    // read image height
+    int height = std::stoi(line.substr(line.find(' '), line.length()));
 
-    // max colour value as an int in ASCII chars
+    // read max colour value
     getline(ifs,line);
     int maxColourValue = std::stoi(line);
     
-    // the pixel data payload
-    for (float y = 0; y < height; y++) {
-      for (float x = 0; x < width; x++) {
+    // read the pixel data payload
+    std::vector<uint32_t> texture = { };
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
         char r, g, b;
         ifs.get(r);
         ifs.get(g);
         ifs.get(b);
         uint32_t pixel = (255<<24) + ((r % maxColourValue)<<16) + ((g % maxColourValue)<<8) + (b % maxColourValue);
-        window.setPixelColour(x,y,pixel);
-      }      
+        texture.push_back(pixel);
+      }
     }
+
     ifs.close();
+    
+    img.width = width;
+    img.height = height;
+    img.pixels = texture;
   } else {
     cout << "ERROR: Cannot open file." << endl;
   }
+
+  return img;
+}
+
+void displayImage()
+{
+    PixelMap img = loadPixelMap("texture.ppm");  
+    drawPixelMap(img);
 }
 
 void drawRandomFilledTriangle()
