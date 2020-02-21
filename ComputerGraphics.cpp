@@ -160,10 +160,10 @@ float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
   float x = 0;
   
   int steps = calcSteps(from,to);  
-  std::vector<vec3> xys = interpolate(from, to, steps);
+  std::vector<vec3> points = interpolate(from, to, steps);
   for (int i=0; i<steps; i++) {
-      if (round(xys.at(i).y) == round(yTarget)) {
-          x = xys.at(i).x;
+      if (round(points.at(i).y) == round(yTarget)) {
+          x = points.at(i).x;
           break;
       }
   }  
@@ -296,10 +296,10 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
   float vy = t.vertices[1].y;
   float vx = findXatYOnLine(vy, t.vertices[0], t.vertices[2]);
   
-  float vty = t.vertices[1].texturePoint.y;
-  float vtx = findXatYOnLine(vty, t.vertices[0].texturePoint, t.vertices[2].texturePoint);
-  TexturePoint tp = TexturePoint(vtx,vty);
-  CanvasPoint v(vx,vy,tp);
+  float vtpy = t.vertices[1].texturePoint.y;
+  float vtpx = findXatYOnLine(vtpy, t.vertices[0].texturePoint, t.vertices[2].texturePoint);
+  TexturePoint vtp = TexturePoint(vtpx,vtpy);
+  CanvasPoint v(vx,vy,vtp);
   
   cout << v << "TexturePoint: " << v.texturePoint;
   
@@ -310,14 +310,32 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
   for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
     float startX = findXatYOnLine(y, topT.vertices[0], topT.vertices[1]);
     float endX = findXatYOnLine(y, topT.vertices[0], topT.vertices[2]);
-    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), RED);
+    CanvasPoint from(startX, y);
+    CanvasPoint to(endX, y);
+    int steps = calcSteps(from,to);
+    std::vector<vec3> points = interpolate(from, to, steps);
+    for (int i=0; i<steps; i++) {
+      int x = round(points.at(i).x);
+      int y = round(points.at(i).y);
+      uint32_t pixel = img.pixels.at(x + img.width*y);
+      window.setPixelColour(x, y, pixel);
+    }
   }
   
   // Fill bottom triangle (top-to-bottom, left-to-right)
   for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
     float startX = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
     float endX = findXatYOnLine(y, bottomT.vertices[1], bottomT.vertices[2]);
-    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), BLUE);
+    CanvasPoint from(startX, y);
+    CanvasPoint to(endX, y);
+    int steps = calcSteps(from,to);
+    std::vector<vec3> points = interpolate(from, to, steps);
+    for (int i=0; i<steps; i++) {
+      int x = round(points.at(i).x);
+      int y = round(points.at(i).y);
+      uint32_t pixel = img.pixels.at(x + img.width*y);
+      window.setPixelColour(x, y, pixel);
+    }
   }
 }
 
@@ -392,11 +410,11 @@ void drawStrokedTriangle(CanvasTriangle triangle)
 
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
-  int steps = calcSteps(from,to);  
-  std::vector<vec3> xys = interpolate(from, to, steps);
+  int steps = calcSteps(from,to);
+  std::vector<vec3> points = interpolate(from, to, steps);
   for (int i=0; i<steps; i++) {
-    window.setPixelColour(round(xys.at(i).x), round(xys.at(i).y), colour.toPackedInt());
-  }  
+    window.setPixelColour(round(points.at(i).x), round(points.at(i).y), colour.toPackedInt());
+  }
 }
 
 uint32_t vec3ToPackedInt(vec3 pixel)
