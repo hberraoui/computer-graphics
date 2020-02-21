@@ -17,8 +17,6 @@ using namespace glm;
 #define BLUE Colour(0,0,255)
 #define BLACK Colour(0,0,0)
 
-bool drawnOnce = false;
-
 void draw();
 void update();
 void handleEvent(SDL_Event event);
@@ -37,7 +35,6 @@ void fillFlatTopTriangle(CanvasTriangle t, Colour c);
 void drawRandomStrokedTriangle();
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
-void drawLineWrapper();
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
 uint32_t vec3ToPackedInt(vec3 pixel);
 vec3 packedIntToVec3(uint32_t colour);
@@ -69,16 +66,16 @@ int WinMain(int argc, char* argv[])
 
 void draw()
 {
-  if (!drawnOnce) {
-    //greyscaleInterpolation();
-    //rainbowInterpolation();
-    //drawLineWrapper();
-    //drawRandomStrokedTriangle();
-    CanvasTriangle t = CanvasTriangle(CanvasPoint(227,41),CanvasPoint(260,94),CanvasPoint(44,209),RED);
-    drawFilledTriangle(t);
-
-    drawnOnce = true;
-  }
+  // window.clearPixels();
+  // for(int y=0; y<window.height ;y++) {
+  //   for(int x=0; x<window.width ;x++) {
+  //     float red = rand() % 255;
+  //     float green = 0.0;
+  //     float blue = 0.0;
+  //     uint32_t colour = (255<<24) + (int(red)<<16) + (int(green)<<8) + int(blue);
+  //     window.setPixelColour(x, y, colour);
+  //   }
+  // }
 }
 
 void update()
@@ -178,21 +175,15 @@ void drawRandomFilledTriangle()
   drawFilledTriangle(triangle);
 }
 
-CanvasPoint deriveNewVertex(CanvasTriangle t)
-{
-    float y = t.vertices[1].y;
-    float x = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
-    return CanvasPoint(x,y);
-}
-
 void drawFilledTriangle(CanvasTriangle t, Colour colour)
 {
-  // Function for a filled triangle
   // Sort vertices by vertical position (top to bottom)
   t.sortVertices();
   
   // Divide triangle into 2 "flat-bottomed" triangles
-  CanvasPoint v = deriveNewVertex(t);
+  CanvasPoint v;
+  v.y = t.vertices[1].y;
+  v.x = findXatYOnLine(v.y, t.vertices[0], t.vertices[2]);
   CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
   CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
   drawStrokedTriangle(topT, colour);
@@ -204,6 +195,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
   // Fill bottom triangle (top-to-bottom, left-to-right)
   fillFlatTopTriangle(bottomT, colour);
   
+  // Test the fill is accurate by drawing the original triangle
   drawStrokedTriangle(t, WHITE);
 }
 
@@ -223,6 +215,7 @@ void fillFlatBottomTriangle(CanvasTriangle t, Colour c)
 
 void fillFlatTopTriangle(CanvasTriangle t, Colour c)
 {
+  // TODO: Merge with fillFlatBottomTriangle?
   for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
     float startX = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
     float endX = findXatYOnLine(y, t.vertices[1], t.vertices[2]);
@@ -243,7 +236,6 @@ void drawRandomStrokedTriangle()
 
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour)
 {
-  // Function for a stroked triangle
   drawLine(triangle.vertices[0], triangle.vertices[1], colour);
   drawLine(triangle.vertices[0], triangle.vertices[2], colour);
   drawLine(triangle.vertices[1], triangle.vertices[2], colour);
@@ -254,18 +246,8 @@ void drawStrokedTriangle(CanvasTriangle triangle)
   drawStrokedTriangle(triangle, triangle.colour);
 }
 
-void drawLineWrapper()
-{
-  CanvasPoint from = CanvasPoint(10, 20);
-  CanvasPoint to = CanvasPoint(50, 50);
-  Colour colour = Colour(255,255,255);
-
-  drawLine(from, to, colour);
-}
-
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
-  // Function for drawing lines
   int steps = calcSteps(from,to);  
   std::vector<vec3> xys = interpolate(from, to, steps);
   for (int i=0; i<steps; i++) {
@@ -286,7 +268,7 @@ vec3 packedIntToVec3(uint32_t colour)
 
 void rainbowInterpolation()
 {
-  // Function for drawing two dimension colour interpolation  
+  // Draw a two dimension colour interpolation  
   window.clearPixels();
   vec3 redPixel(255,0,0);
   vec3 bluePixel(0,0,255);
@@ -318,7 +300,7 @@ void rainbowInterpolation()
 
 void greyscaleInterpolation()
 {
-  // Function for drawing one dimension greyscale interpolation  
+  // Drawing a one dimension greyscale interpolation  
   window.clearPixels();
   std::vector<float> v;
   v = interpolate(0, 255, window.width);
