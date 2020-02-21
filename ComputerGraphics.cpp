@@ -9,8 +9,8 @@
 using namespace std;
 using namespace glm;
 
-#define WIDTH 320
-#define HEIGHT 240
+#define WIDTH 480
+#define HEIGHT 395
 #define WHITE Colour(255,255,255)
 #define RED Colour(255,0,0)
 #define GREEN Colour(0,255,0)
@@ -27,6 +27,7 @@ std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps);
 int calcSteps(vec3 from, vec3 to);
 int calcSteps(CanvasPoint from, CanvasPoint to);
 float findXatYOnLine(float y, CanvasPoint from, CanvasPoint to);
+void displayImage();
 void drawRandomFilledTriangle();
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
 void drawFilledTriangle(CanvasTriangle triangle);
@@ -46,6 +47,7 @@ DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 int main(int argc, char* argv[])
 {
   SDL_Event event;
+  displayImage();
   while(true)
   {
     // We MUST poll for events - otherwise the window will freeze !
@@ -162,6 +164,50 @@ float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
   }  
 
   return x;
+}
+
+void displayImage() {
+  string line;
+  std::ifstream ifs;
+  ifs.open("texture.ppm", ios::binary);
+  if (ifs.is_open()) {
+    // "magic number" to indicate encoding method (P6)
+    getline(ifs,line);
+    if (line != "P6") {
+      cout << "ERROR: Unsupported PPM format. Closing file." << endl;
+      ifs.close();
+      return;
+    }
+    
+    // Ignore comments
+    getline(ifs,line);
+    while (line[0] == '#') getline(ifs,line);
+    
+    // image width formatted as an int in ASCII chars
+    float width = std::stoi(line.substr(0, line.find(' ')));
+    
+    // image height formatted as an int in ASCII chars
+    float height = std::stoi(line.substr(line.find(' '), line.length()));
+
+    // max colour value as an int in ASCII chars
+    getline(ifs,line);
+    int maxColourValue = std::stoi(line);
+    
+    // the pixel data payload
+    for (float y = 0; y < height; y++) {
+      for (float x = 0; x < width; x++) {
+        char r, g, b;
+        ifs.get(r);
+        ifs.get(g);
+        ifs.get(b);
+        uint32_t pixel = (255<<24) + ((r % maxColourValue)<<16) + ((g % maxColourValue)<<8) + (b % maxColourValue);
+        window.setPixelColour(x,y,pixel);
+      }      
+    }
+    ifs.close();
+  } else {
+    cout << "ERROR: Cannot open file." << endl;
+  }
 }
 
 void drawRandomFilledTriangle()
