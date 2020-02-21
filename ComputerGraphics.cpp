@@ -287,8 +287,6 @@ void drawRandomFilledTriangle()
 void drawFilledTriangle(CanvasTriangle t, PixelMap img)
 {
   // TODO: Properly implement Task 5: Texture Mapping
-  Colour colour = WHITE; // just so the copied over function works for now
-
   // Sort vertices by vertical position (top to bottom)
   t.sortVertices();
 
