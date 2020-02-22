@@ -32,12 +32,11 @@ bool drawPixelMap(PixelMap img, int startX, int startY);
 bool drawPixelMap(PixelMap img);
 PixelMap loadPixelMap(string fn);
 void textureMappingTask();
+void drawImage();
 void drawRandomFilledTriangle();
 void drawFilledTriangle(CanvasTriangle t, PixelMap img);
 void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
 void drawFilledTriangle(CanvasTriangle triangle);
-void fillFlatBottomTriangle(CanvasTriangle t, Colour c);
-void fillFlatTopTriangle(CanvasTriangle t, Colour c);
 void drawRandomStrokedTriangle();
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
@@ -52,7 +51,6 @@ DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 int main(int argc, char* argv[])
 {
   SDL_Event event;
-  textureMappingTask();
   while(true)
   {
     // We MUST poll for events - otherwise the window will freeze !
@@ -97,8 +95,11 @@ void handleEvent(SDL_Event event)
     else if(event.key.keysym.sym == SDLK_RIGHT) cout << "RIGHT" << endl;
     else if(event.key.keysym.sym == SDLK_UP) cout << "UP" << endl;
     else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
+    else if(event.key.keysym.sym == SDLK_c) window.clearPixels();
     else if(event.key.keysym.sym == SDLK_u) drawRandomStrokedTriangle();
     else if(event.key.keysym.sym == SDLK_f) drawRandomFilledTriangle();
+    else if(event.key.keysym.sym == SDLK_i) drawImage();
+    else if(event.key.keysym.sym == SDLK_t) textureMappingTask();
   }
   else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
 }
@@ -255,6 +256,12 @@ PixelMap loadPixelMap(string fn)
   return img;
 }
 
+void drawImage()
+{
+    PixelMap img = loadPixelMap("texture.ppm");
+    drawPixelMap(img);
+}
+
 void textureMappingTask()
 {
     TexturePoint t0(195,5);
@@ -271,6 +278,12 @@ void textureMappingTask()
     drawFilledTriangle(t, img);
     
     drawStrokedTriangle(t);
+
+    // CanvasPoint vt0(t0.x,t0.y);
+    // CanvasPoint vt1(t1.x,t1.y);
+    // CanvasPoint vt2(t2.x,t2.y);    
+    // CanvasTriangle tT(vt0,vt1,vt2,WHITE);
+    // drawFilledTriangle(tT, img);
 }
 
 void drawRandomFilledTriangle()
@@ -306,15 +319,11 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
 
   // Fill top triangle (top-to-bottom, left-to-right)
   for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
-    float startX = findXatYOnLine(y, topT.vertices[0], topT.vertices[1]);
-    float endX = findXatYOnLine(y, topT.vertices[0], topT.vertices[2]);
-    CanvasPoint from(startX, y);
-    CanvasPoint to(endX, y);
-    int steps = calcSteps(from,to);
-    std::vector<vec3> points = interpolate(from, to, steps);
-    for (int i=0; i<steps; i++) {
-      int x = round(points.at(i).x);
-      int y = round(points.at(i).y);
+    float x1 = findXatYOnLine(y, topT.vertices[0], topT.vertices[1]);
+    float x2 = findXatYOnLine(y, topT.vertices[0], topT.vertices[2]);
+    float startX = std::min(x1,x2);
+    float endX = std::max(x1,x2);
+    for (int x = startX; x <= endX; x++) {
       uint32_t pixel = img.pixels.at(x + img.width*y);
       window.setPixelColour(x, y, pixel);
     }
@@ -322,15 +331,11 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
   
   // Fill bottom triangle (top-to-bottom, left-to-right)
   for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
-    float startX = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
-    float endX = findXatYOnLine(y, bottomT.vertices[1], bottomT.vertices[2]);
-    CanvasPoint from(startX, y);
-    CanvasPoint to(endX, y);
-    int steps = calcSteps(from,to);
-    std::vector<vec3> points = interpolate(from, to, steps);
-    for (int i=0; i<steps; i++) {
-      int x = round(points.at(i).x);
-      int y = round(points.at(i).y);
+    float x1 = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
+    float x2 = findXatYOnLine(y, bottomT.vertices[1], bottomT.vertices[2]);
+    float startX = std::min(x1,x2);
+    float endX = std::max(x1,x2);
+    for (int x = startX; x <= endX; x++) {
       uint32_t pixel = img.pixels.at(x + img.width*y);
       window.setPixelColour(x, y, pixel);
     }
@@ -350,10 +355,24 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
   CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
 
   // Fill top triangle (top-to-bottom, left-to-right)
-  fillFlatBottomTriangle(topT, colour);
+  for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
+    float x1 = findXatYOnLine(y, topT.vertices[0], topT.vertices[1]);
+    float x2 = findXatYOnLine(y, topT.vertices[0], topT.vertices[2]);
+    float startX = std::min(x1,x2);
+    float endX = std::max(x1,x2);
+    for (int x = startX; x <= endX; x++)
+      window.setPixelColour(x, y, colour.toPackedInt());
+  }
   
   // Fill bottom triangle (top-to-bottom, left-to-right)
-  fillFlatTopTriangle(bottomT, colour);
+  for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
+    float x1 = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
+    float x2 = findXatYOnLine(y, bottomT.vertices[1], bottomT.vertices[2]);
+    float startX = std::min(x1,x2);
+    float endX = std::max(x1,x2);
+    for (int x = startX; x <= endX; x++)
+      window.setPixelColour(x, y, colour.toPackedInt());
+  }
   
   // Test the fill is accurate by drawing the original triangle
   drawStrokedTriangle(t, WHITE);
@@ -362,25 +381,6 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
 void drawFilledTriangle(CanvasTriangle t)
 {
   drawFilledTriangle(t, t.colour);
-}
-
-void fillFlatBottomTriangle(CanvasTriangle t, Colour c)
-{
-  for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
-    float startX = findXatYOnLine(y, t.vertices[0], t.vertices[1]);
-    float endX = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
-    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), c);
-  }
-}
-
-void fillFlatTopTriangle(CanvasTriangle t, Colour c)
-{
-  // TODO: Merge with fillFlatBottomTriangle?
-  for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
-    float startX = findXatYOnLine(y, t.vertices[0], t.vertices[2]);
-    float endX = findXatYOnLine(y, t.vertices[1], t.vertices[2]);
-    drawLine(CanvasPoint(startX, y), CanvasPoint(endX, y), c);
-  }
 }
 
 void drawRandomStrokedTriangle()
