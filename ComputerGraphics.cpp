@@ -135,9 +135,7 @@ std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
 
 std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps)
 {
-  vec3 fromVec(from.x, from.y, 0);
-  vec3 toVec(to.x, to.y, 0);
-  return interpolate(fromVec, toVec, steps);
+  return interpolate(vec3(from.x, from.y, 0), vec3(to.x, to.y, 0), steps);
 }
 
 int calcSteps(float fromX, float fromY, float toX, float toY)
@@ -173,9 +171,7 @@ float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
 
 float findXatYOnLine(float yTarget, TexturePoint from, TexturePoint to)
 {
-  CanvasPoint fromNew(from.x,from.y);
-  CanvasPoint toNew(to.x,to.y);
-  return findXatYOnLine(yTarget,fromNew,toNew);
+  return findXatYOnLine(yTarget,CanvasPoint(from.x,from.y),CanvasPoint(to.x,to.y));
 }
 
 bool drawPixelMap(PixelMap img, int startX, int startY)
@@ -272,12 +268,11 @@ void textureMappingTask()
 
 void drawRandomFilledTriangle()
 {
-  CanvasPoint v0 = CanvasPoint(rand() % window.width, rand() % window.height);
-  CanvasPoint v1 = CanvasPoint(rand() % window.width, rand() % window.height);
-  CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
-  Colour colour = Colour(rand() % 255, rand() % 255, rand() % 255);
-  CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
-  drawFilledTriangle(triangle);
+  CanvasTriangle t(CanvasPoint(rand() % window.width, rand() % window.height),
+                   CanvasPoint(rand() % window.width, rand() % window.height),
+                   CanvasPoint(rand() % window.width, rand() % window.height),
+                   Colour(rand() % 255, rand() % 255, rand() % 255));
+  drawFilledTriangle(t);
 }
 
 void drawFilledTriangle(CanvasTriangle t, PixelMap img)
@@ -367,12 +362,11 @@ void drawFilledTriangle(CanvasTriangle t)
 
 void drawRandomStrokedTriangle()
 {
-  CanvasPoint v0 = CanvasPoint(rand() % window.width, rand() % window.height);
-  CanvasPoint v1 = CanvasPoint(rand() % window.width, rand() % window.height);
-  CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
-  Colour colour = Colour(rand() % 255, rand() % 255, rand() % 255);
-  CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
-  drawStrokedTriangle(triangle);
+  CanvasTriangle t(CanvasPoint(rand() % window.width, rand() % window.height),
+                   CanvasPoint(rand() % window.width, rand() % window.height),
+                   CanvasPoint(rand() % window.width, rand() % window.height),
+                   Colour(rand() % 255, rand() % 255, rand() % 255));
+  drawStrokedTriangle(t);
 }
 
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour)
@@ -398,9 +392,7 @@ void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 
 void drawLine(TexturePoint from, TexturePoint to, Colour colour)
 {
-  CanvasPoint fromNew(from.x, from.y);
-  CanvasPoint toNew(to.x, to.y);
-  drawLine(fromNew, toNew, colour);
+  drawLine(CanvasPoint(from.x, from.y), CanvasPoint(to.x, to.y), colour);
 }
 
 uint32_t vec3ToPackedInt(vec3 pixel)
