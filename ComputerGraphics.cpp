@@ -21,12 +21,13 @@ using namespace glm;
 void draw();
 void update();
 void handleEvent(SDL_Event event);
-float interpolationStep(float start, float to, float from, int steps);
+float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
 std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps);
-int calcSteps(vec3 from, vec3 to);
+int calcSteps(float fromX, float fromY, float toX, float toY);
 int calcSteps(CanvasPoint from, CanvasPoint to);
+int calcSteps(vec3 from, vec3 to);
 float findXatYOnLine(float y, CanvasPoint from, CanvasPoint to);
 bool drawPixelMap(PixelMap img, int startX, int startY);
 bool drawPixelMap(PixelMap img);
@@ -41,6 +42,7 @@ void drawRandomStrokedTriangle();
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
+void drawLine(TexturePoint from, TexturePoint to, Colour colour);
 uint32_t vec3ToPackedInt(vec3 pixel);
 vec3 packedIntToVec3(uint32_t colour);
 void rainbowInterpolation();
@@ -71,9 +73,10 @@ int WinMain(int argc, char* argv[])
 
 void draw()
 {
+  // RedNoise
   // window.clearPixels();
-  // for(int y=0; y<window.height ;y++) {
-  //   for(int x=0; x<window.width ;x++) {
+  // for(int y=0; y < window.height; y++) {
+  //   for(int x=0; x < window.width; x++) {
   //     float red = rand() % 255;
   //     float green = 0.0;
   //     float blue = 0.0;
@@ -104,7 +107,7 @@ void handleEvent(SDL_Event event)
   else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
 }
 
-float interpolationStep(float start, float to, float from, int steps)
+float interpolationStep(float start, float from, float to, int steps)
 {
   return start + (to - from) / steps;
 }
@@ -112,63 +115,59 @@ float interpolationStep(float start, float to, float from, int steps)
 std::vector<float> interpolate(float from, float to, int steps)
 {
   std::vector<float> v = { from };
-    
-  for (int i = 0; i < steps; ++i) {
-    v.push_back(interpolationStep(v.back(),to,from,steps));
+  for (int i = 0; i < steps; i++) {
+    v.push_back(interpolationStep(v.back(), from, to, steps));
   }
-  
   return v;
 }
 
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
 {
   std::vector<vec3> v = { from };
-
-  for (int i = 0; i < steps; ++i) {
-    vec3 newvec(interpolationStep(v.back().x,to.x,from.x,steps),
-                interpolationStep(v.back().y,to.y,from.y,steps),
-                interpolationStep(v.back().z,to.z,from.z,steps));
+  for (int i = 0; i < steps; i++) {
+    vec3 newvec(interpolationStep(v.back().x, from.x, to.x, steps),
+                interpolationStep(v.back().y, from.y, to.y, steps),
+                interpolationStep(v.back().z, from.z, to.z, steps));
     v.push_back(newvec);
   }
-
   return v;
 }
 
 std::vector<vec3> interpolate(CanvasPoint from, CanvasPoint to, int steps)
 {
-  vec3 fromVec(from.x,from.y,0);
-  vec3 toVec(to.x,to.y,0);
-
-  return interpolate(fromVec,toVec,steps);
+  vec3 fromVec(from.x, from.y, 0);
+  vec3 toVec(to.x, to.y, 0);
+  return interpolate(fromVec, toVec, steps);
 }
 
-int calcSteps(vec3 from, vec3 to)
-{    
-  float xDiff = to.x - from.x;
-  float yDiff = to.y - from.y;
-  return round(std::max(abs(xDiff), abs(yDiff)));
+int calcSteps(float fromX, float fromY, float toX, float toY)
+{
+  float xDiff = toX - fromX;
+  float yDiff = toY - fromY;
+  return std::floor(std::max(abs(xDiff), abs(yDiff)));
 }
 
 int calcSteps(CanvasPoint from, CanvasPoint to)
-{    
-  float xDiff = to.x - from.x;
-  float yDiff = to.y - from.y;
-  return round(std::max(abs(xDiff), abs(yDiff)));
+{
+  return calcSteps(from.x, from.y, to.x, to.y);
+}
+
+int calcSteps(vec3 from, vec3 to)
+{
+  return calcSteps(from.x, from.y, to.x, to.y);
 }
 
 float findXatYOnLine(float yTarget, CanvasPoint from, CanvasPoint to)
 {
-  float x = 0;
-  
-  int steps = calcSteps(from,to);  
+  float x = -1;
+  int steps = calcSteps(from,to);
   std::vector<vec3> points = interpolate(from, to, steps);
-  for (int i=0; i<steps; i++) {
-      if (round(points.at(i).y) == round(yTarget)) {
-          x = points.at(i).x;
-          break;
-      }
-  }  
-
+  for (int i = 0; i < steps; i++) {
+    if (std::floor(points.at(i).y) == std::floor(yTarget)) {
+      x = points.at(i).x;
+      break;
+    }
+  }
   return x;
 }
 
@@ -203,12 +202,12 @@ bool drawPixelMap(PixelMap img)
 PixelMap loadPixelMap(string fn)
 {
   PixelMap img;
-  
+
   std::ifstream ifs;
   ifs.open(fn, ios::binary);
   if (ifs.is_open()) {
     string line;
-    
+
     // check for "magic number" to indicate correct encoding method (P6)
     getline(ifs,line);
     if (line != "P6") {
@@ -216,21 +215,19 @@ PixelMap loadPixelMap(string fn)
       ifs.close();
       return img;
     }
-    
+
     // ignore comments
     getline(ifs,line);
     while (line[0] == '#') getline(ifs,line);
-    
-    // read image width
+
+    // read image dimensions
     int width = std::stoi(line.substr(0, line.find(' ')));
-    
-    // read image height
     int height = std::stoi(line.substr(line.find(' '), line.length()));
 
     // read max colour value
     getline(ifs,line);
     int maxColourValue = std::stoi(line);
-    
+
     // read the pixel data payload
     std::vector<uint32_t> texture = { };
     for (int y = 0; y < height; y++) {
@@ -245,7 +242,8 @@ PixelMap loadPixelMap(string fn)
     }
 
     ifs.close();
-    
+
+    // populate the PixelMap's fields
     img.width = width;
     img.height = height;
     img.pixels = texture;
@@ -258,32 +256,18 @@ PixelMap loadPixelMap(string fn)
 
 void drawImage()
 {
-    PixelMap img = loadPixelMap("texture.ppm");
-    drawPixelMap(img);
+  PixelMap img = loadPixelMap("texture.ppm");
+  drawPixelMap(img);
 }
 
 void textureMappingTask()
 {
-    TexturePoint t0(195,5);
-    TexturePoint t1(395,380);
-    TexturePoint t2(65,330);
-    
-    CanvasPoint v0(160,10,t0);
-    CanvasPoint v1(300,230,t1);
-    CanvasPoint v2(10,150,t2);
-    
-    CanvasTriangle t(v0,v1,v2,WHITE);
-    
-    PixelMap img = loadPixelMap("texture.ppm");
-    drawFilledTriangle(t, img);
-    
-    drawStrokedTriangle(t);
-
-    // CanvasPoint vt0(t0.x,t0.y);
-    // CanvasPoint vt1(t1.x,t1.y);
-    // CanvasPoint vt2(t2.x,t2.y);    
-    // CanvasTriangle tT(vt0,vt1,vt2,WHITE);
-    // drawFilledTriangle(tT, img);
+  PixelMap img = loadPixelMap("texture.ppm");
+  CanvasTriangle t(CanvasPoint(160, 10,TexturePoint(195,  5)),
+                   CanvasPoint(300,230,TexturePoint(395,380)),
+                   CanvasPoint( 10,150,TexturePoint( 65,330)));
+  drawFilledTriangle(t, img);
+  drawStrokedTriangle(t);
 }
 
 void drawRandomFilledTriangle()
@@ -293,7 +277,6 @@ void drawRandomFilledTriangle()
   CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
   Colour colour = Colour(rand() % 255, rand() % 255, rand() % 255);
   CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
-  
   drawFilledTriangle(triangle);
 }
 
@@ -303,21 +286,19 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
   // Sort vertices by vertical position (top to bottom)
   t.sortVertices();
 
-  // Divide triangle into 2 "flat-bottomed" triangles
+  // Interpolate "top" and "bottom" to find "flat" division vertex
   float vy = t.vertices[1].y;
   float vx = findXatYOnLine(vy, t.vertices[0], t.vertices[2]);
+  CanvasPoint v(vx,vy);
   
-  float vtpy = t.vertices[1].texturePoint.y;
-  float vtpx = findXatYOnLine(vtpy, t.vertices[0].texturePoint, t.vertices[2].texturePoint);
-  TexturePoint vtp = TexturePoint(vtpx,vtpy);
-  CanvasPoint v(vx,vy,vtp);
-  
-  cout << v << "TexturePoint: " << v.texturePoint;
-  
+  // TODO: Calculate equivalent vertex in texture-space
+
+  // Divide triangle into 2 "flat" triangles
   CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
   CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
 
   // Fill top triangle (top-to-bottom, left-to-right)
+  // TODO: Correctly interpolate correct pixels from the texture-space
   for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
     float x1 = findXatYOnLine(y, topT.vertices[0], topT.vertices[1]);
     float x2 = findXatYOnLine(y, topT.vertices[0], topT.vertices[2]);
@@ -330,6 +311,7 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
   }
   
   // Fill bottom triangle (top-to-bottom, left-to-right)
+  // TODO: Correctly interpolate correct pixels from the texture-space
   for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
     float x1 = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
     float x2 = findXatYOnLine(y, bottomT.vertices[1], bottomT.vertices[2]);
@@ -346,7 +328,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
 {
   // Sort vertices by vertical position (top to bottom)
   t.sortVertices();
-  
+
   // Divide triangle into 2 "flat-bottomed" triangles
   float vy = t.vertices[1].y;
   float vx = findXatYOnLine(vy, t.vertices[0], t.vertices[2]);
@@ -363,7 +345,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
     for (int x = startX; x <= endX; x++)
       window.setPixelColour(x, y, colour.toPackedInt());
   }
-  
+
   // Fill bottom triangle (top-to-bottom, left-to-right)
   for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
     float x1 = findXatYOnLine(y, bottomT.vertices[0], bottomT.vertices[2]);
@@ -373,7 +355,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
     for (int x = startX; x <= endX; x++)
       window.setPixelColour(x, y, colour.toPackedInt());
   }
-  
+
   // Test the fill is accurate by drawing the original triangle
   drawStrokedTriangle(t, WHITE);
 }
@@ -390,7 +372,6 @@ void drawRandomStrokedTriangle()
   CanvasPoint v2 = CanvasPoint(rand() % window.width, rand() % window.height);
   Colour colour = Colour(rand() % 255, rand() % 255, rand() % 255);
   CanvasTriangle triangle = CanvasTriangle(v0, v1, v2, colour);
-  
   drawStrokedTriangle(triangle);
 }
 
@@ -410,9 +391,16 @@ void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
   int steps = calcSteps(from,to);
   std::vector<vec3> points = interpolate(from, to, steps);
-  for (int i=0; i<steps; i++) {
-    window.setPixelColour(round(points.at(i).x), round(points.at(i).y), colour.toPackedInt());
+  for (int i = 0; i < steps; i++) {
+    window.setPixelColour(std::floor(points.at(i).x), std::floor(points.at(i).y), colour.toPackedInt());
   }
+}
+
+void drawLine(TexturePoint from, TexturePoint to, Colour colour)
+{
+  CanvasPoint fromNew(from.x, from.y);
+  CanvasPoint toNew(to.x, to.y);
+  drawLine(fromNew, toNew, colour);
 }
 
 uint32_t vec3ToPackedInt(vec3 pixel)
@@ -439,20 +427,20 @@ void rainbowInterpolation()
   
   std::vector<vec3> v;
   v = interpolate(redPixel, yellowPixel, window.height);
-  for(int y=0; y<window.height; y++) {
+  for(int y = 0; y < window.height; y++) {
     window.setPixelColour(0, y, vec3ToPackedInt(v.at(y)));
   }
   
   v = interpolate(bluePixel, greenPixel, window.height);
-  for(int y=0; y<window.height; y++) {
+  for(int y=0; y < window.height; y++) {
     window.setPixelColour(window.width-1, y, vec3ToPackedInt(v.at(y)));
   }
 
-  for(int y=0; y<window.height; y++) {
+  for(int y=0; y < window.height; y++) {
     v = interpolate(packedIntToVec3(window.getPixelColour(0,y)),
                     packedIntToVec3(window.getPixelColour(window.width-1,y)),
                     window.width);
-    for(int x=0; x<window.width; x++) {
+    for(int x=0; x < window.width; x++) {
       window.setPixelColour(x, y, vec3ToPackedInt(v.at(x)));
     }
   }
@@ -464,8 +452,8 @@ void greyscaleInterpolation()
   window.clearPixels();
   std::vector<float> v;
   v = interpolate(0, 255, window.width);
-  for(int y=0; y<window.height; y++) {
-    for(int x=0; x<window.width; x++) {
+  for(int y = 0; y < window.height; y++) {
+    for(int x = 0; x < window.width; x++) {
       vec3 c(v.at(x), v.at(x), v.at(x));
       window.setPixelColour(x, y, vec3ToPackedInt(c));
     }
