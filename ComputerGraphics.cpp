@@ -445,7 +445,7 @@ void drawImage()
 void textureMappingTask()
 {
     PixelMap img = loadPixelMap("texture.ppm");
-    CanvasTriangle t(CanvasPoint(160, 10,TexturePoint(195,    5)),
+    CanvasTriangle t(CanvasPoint(160, 10,TexturePoint(195,  5)),
                      CanvasPoint(300,230,TexturePoint(395,380)),
                      CanvasPoint( 10,150,TexturePoint( 65,330)));
     drawFilledTriangle(t, img);
@@ -464,7 +464,6 @@ std::vector<TexturePoint> interpolate(TexturePoint from, TexturePoint to, int st
 
 void drawFilledTriangle(CanvasTriangle t, PixelMap img)
 {
-    // TODO: Properly implement Task 5: Texture Mapping
     // Sort vertices by vertical position (top to bottom)
     t.sortVertices();
 
@@ -491,57 +490,76 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
     CanvasTriangle topT = CanvasTriangle(top, middle, divV);
     CanvasTriangle bottomT = CanvasTriangle(middle, divV, bottom);
 
-    // Calculate steps from 0 to 1
-    int numberOfStepsFromZeroToOne = topT.vertices[1].y - topT.vertices[0].y; //calcSteps(topT.vertices[0], topT.vertices[1]);
-    // cout << "Canvas space 0 to 1: " << numberOfStepsFromZeroToOne << endl;
-
-    // Calculate steps from 0 to 2
-    int numberOfStepsFromZeroToTwo = calcSteps(topT.vertices[0], topT.vertices[2]);
-    // cout << "Canvas space 0 to 2: " << numberOfStepsFromZeroToTwo << endl;
-
-    // Interpolate from 0 to 1 in the canvas space
-    std::vector<CanvasPoint> pixelsTopToLeft = interpolate(topT.vertices[0],
-                                                           topT.vertices[1],
-                                                           numberOfStepsFromZeroToOne);
-
-    // Interpolate from 0 to 2 in the canvas space
-    std::vector<CanvasPoint> pixelsTopToRight = interpolate(topT.vertices[0],
-                                                            topT.vertices[2],
-                                                            numberOfStepsFromZeroToTwo);
-
-    // Select biggest number of steps
-    int numberOfRows = topT.vertices[1].y - topT.vertices[0].y; //std::max(numberOfStepsFromZeroToOne, numberOfStepsFromZeroToTwo);
-    // cout << "Selected number of steps: " << numberOfRows << endl; 
-
-    // Interpolate from 0 to 1 in the texture space
-    std::vector<TexturePoint> texelsTopToLeft = interpolate(topT.vertices[0].texturePoint,
-                                                            topT.vertices[1].texturePoint,
-                                                            numberOfRows);
+    // Tackle the top triangle first
+    int numberOfRows;
+    std::vector<CanvasPoint> canvasStartPoints;
+    std::vector<CanvasPoint> canvasEndPoints;
+    std::vector<TexturePoint> textureStartPoints;
+    std::vector<TexturePoint> textureEndPoints;
     
-    // Interpolate from 0 to 2 in the texture space
-    std::vector<TexturePoint> texelsTopToRight = interpolate(topT.vertices[0].texturePoint,
-                                                             topT.vertices[2].texturePoint,
-                                                             numberOfRows);
+    // Select biggest number of steps
+    numberOfRows = std::max((topT.vertices[1].y - topT.vertices[0].y),
+                            (topT.vertices[2].y - topT.vertices[0].y));
+    
+    // Interpolate start and end points in canvas space
+    canvasStartPoints = interpolate(topT.vertices[0], topT.vertices[1], numberOfRows);
+    canvasEndPoints = interpolate(topT.vertices[0], topT.vertices[2], numberOfRows);
+    
+    // Interpolate start and end points in texture space
+    textureStartPoints = interpolate(topT.vertices[0].texturePoint,
+                                     topT.vertices[1].texturePoint,
+                                     numberOfRows);
+    textureEndPoints = interpolate(topT.vertices[0].texturePoint,
+                                   topT.vertices[2].texturePoint,
+                                   numberOfRows);
 
-    std::vector<TexturePoint> textureRow = {};
-    for (int step = 0; step < numberOfRows; step++) {
-        CanvasPoint startPoint = pixelsTopToLeft.at(step);
-        CanvasPoint endPoint = pixelsTopToRight.at(step);
+    for (int row = 0; row < numberOfRows; row++) {
+        CanvasPoint startPoint = canvasStartPoints.at(row);
+        CanvasPoint endPoint = canvasEndPoints.at(row);
+        int canvasRowLength = std::round(endPoint.x - startPoint.x);
+        std::vector<TexturePoint> textureRow = interpolate(textureStartPoints.at(row),
+                                                           textureEndPoints.at(row),
+                                                           canvasRowLength);
 
-        int numberOfStepsFromStartToEnd = std::round(endPoint.x - startPoint.x);
-        textureRow = interpolate(texelsTopToLeft.at(step),
-                                 texelsTopToRight.at(step),
-                                 numberOfStepsFromStartToEnd);
-
-
-        for (int i = 0; i < (int) textureRow.size(); i++) {
-            int x = startPoint.x + i;
-            int y = topT.vertices[0].y + step;
-            TexturePoint texP = textureRow.at(i);
+        for (int column = 0; column < (int) textureRow.size(); column++) {
+            int x = startPoint.x + column;
+            int y = topT.vertices[0].y + row;
+            TexturePoint texP = textureRow.at(column);
             uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
             window.setPixelColour(x, y, pixel);
         }
     }
-        
-    cout << (int) textureRow.size() << endl;
+    
+    // Tackle the bottom triangle next, again by selecting biggest number of steps
+    numberOfRows = std::max((bottomT.vertices[2].y - bottomT.vertices[0].y),
+                            (bottomT.vertices[2].y - bottomT.vertices[1].y));
+    
+    // Interpolate start and end points in canvas space
+    canvasStartPoints = interpolate(bottomT.vertices[0], bottomT.vertices[2], numberOfRows);
+    canvasEndPoints = interpolate(bottomT.vertices[1], bottomT.vertices[2], numberOfRows);
+    
+    // Interpolate start and end points in texture space
+    textureStartPoints = interpolate(bottomT.vertices[0].texturePoint,
+                                     bottomT.vertices[2].texturePoint,
+                                     numberOfRows);
+    textureEndPoints = interpolate(bottomT.vertices[1].texturePoint,
+                                   bottomT.vertices[2].texturePoint,
+                                   numberOfRows);
+
+    for (int row = 0; row < numberOfRows; row++) {
+        CanvasPoint startPoint = canvasStartPoints.at(row);
+        CanvasPoint endPoint = canvasEndPoints.at(row);
+        int canvasRowLength = std::round(endPoint.x - startPoint.x);
+        std::vector<TexturePoint> textureRow = interpolate(textureStartPoints.at(row),
+                                                           textureEndPoints.at(row),
+                                                           canvasRowLength);
+
+        for (int column = 0; column < (int) textureRow.size(); column++) {
+            int x = startPoint.x + column;
+            int y = bottomT.vertices[0].y + row;
+            TexturePoint texP = textureRow.at(column);
+            uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
+            window.setPixelColour(x, y, pixel);
+        }
+    }
 }
