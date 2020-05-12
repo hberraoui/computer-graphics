@@ -11,8 +11,8 @@
 using namespace std;
 using namespace glm;
 
-#define WIDTH 320
-#define HEIGHT 240
+#define WIDTH 640	
+#define HEIGHT 480
 
 string cornellBoxMtlPath = "../cornell-box/cornell-box.mtl";
 string cornellBoxObjPath = "../cornell-box/cornell-box.obj";
@@ -30,11 +30,11 @@ vector<Colour> palette;
 vector<vec3> vertices;
 vector<ModelTriangle> triangles;
 
-float cameraStepBack = -10;
+float cameraStepBack = 10;
 float focalLength;
 vec3 pointCameraSpace;
 vec3 pointCanvasSpace;
-int scale = 20;
+int scale = 120;
 vec3 pointWorldSpace;
 
 float centerOfWorld;
@@ -287,14 +287,14 @@ void pointWorldToCameraSpace(){
 			
 			float cx = focalLength * (x / z);
 			float cy = focalLength * (y / z);
-			float cz = focalLength;
+			//float cz = focalLength;
 			
 			//cout << x << " " << y << " " << z << " " << cx << endl;
 			
 			// calculate window coordinates and scale
-			pointCanvasSpace.x = round(cx * scale + WIDTH/2); 
-			pointCanvasSpace.y = round(cy * scale + WIDTH/2);
-			pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
+			pointCanvasSpace.x = round(WIDTH/2 - cx * scale); 
+			pointCanvasSpace.y = round(cy * scale + HEIGHT/2);
+			//pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
 			
 			window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, pixel);
 			vcounter++;
