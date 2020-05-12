@@ -34,6 +34,7 @@ float getXFromY(float y, CanvasPoint from, CanvasPoint to);
 bool drawPixelMap(PixelMap img, int startX, int startY);
 bool drawPixelMap(PixelMap img);
 PixelMap loadPixelMap(string fn);
+void saveImage();
 void textureMappingTask();
 void drawImage();
 void drawRandomFilledTriangle();
@@ -100,6 +101,7 @@ void handleEvent(SDL_Event event)
         else if(event.key.keysym.sym == SDLK_f) drawRandomFilledTriangle(); // "f" key draws a random filled triangle
         else if(event.key.keysym.sym == SDLK_i) drawImage(); // "i" key loads the PPM image and draws it
         else if(event.key.keysym.sym == SDLK_t) textureMappingTask(); // "t" key draws a texture mapped triangle as in 2D Task 5
+        else if(event.key.keysym.sym == SDLK_s) saveImage(); // "s" key saves the entire window as a PPM image and outputs as output.ppm
     }
     else if(event.type == SDL_MOUSEBUTTONDOWN) cout << "MOUSE CLICKED" << endl;
 }
@@ -562,4 +564,43 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
             window.setPixelColour(x, y, pixel);
         }
     }
+}
+
+// Saving to PPM
+void saveAreaAsImage(int width, int height);
+void saveImage()
+{
+    saveAreaAsImage(window.width/2, window.height);
+}
+
+void saveAreaAsImage(int width, int height)
+{
+    PixelMap img;
+
+    img.width = width;
+    img.height = height;
+    img.pixels = {};
+    
+    for (int row = 0; row < img.height; row++) {
+        for (int column = 0; column < img.width; column++) {
+            img.pixels.push_back(window.getPixelColour(column, row));
+        }
+    }
+    
+    ofstream myfile ("output.ppm", ios::binary);
+    if (myfile.is_open()) {
+        myfile << "P6\n";
+        myfile << img.width << " " << img.height << endl;
+        myfile << "255" << endl;
+        for (int i = 0; i < (int) img.pixels.size(); i++) {
+            char r = (img.pixels.at(i) << 8)       >> 24;
+            char g = (img.pixels.at(i) << 16)  >> 24;
+            char b = (img.pixels.at(i) << 24) >> 24;
+            myfile << r;
+            myfile << g;
+            myfile << b;
+        }
+    }
+    
+    cout << "SAVED WINDOW AS PPM IMAGE FILE \"output.ppm\"" << endl;
 }
