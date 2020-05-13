@@ -18,6 +18,8 @@ void handleEvent(SDL_Event event);
 bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
 void centerCameraPosition();
+RayTriangleIntersection getClosestIntersection(int x, int y);
+void rayTraceOverImagePlane();
 void transformVertexCoordinatesToCanvas();
 float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
@@ -94,6 +96,12 @@ int main(int argc, char* argv[])
     //loadObjFile(hackspaceLogoObjPath);
 
     centerCameraPosition();
+    
+    // RASTERISE:
+    // transformVertexCoordinatesToCanvas();
+    
+    // RAYTRACE:
+    rayTraceOverImagePlane();
     
     SDL_Event event;
     while(true)
@@ -352,29 +360,87 @@ void transformVertexCoordinatesToCanvas(){ // a.k.a Rasterisation
     // cout << (int)triangles.size();
 }
 
-// We need to be able to detect intersections between rays and triangles
-// Represent a ray using a start point
-//                   and a direction vector
-// Therefore, any position along a ray can be represented as:
-//       position = startPoint + scalar * direction
-
-RayTriangleIntersection getClosestIntersection()
+RayTriangleIntersection getClosestIntersection(int x, int y)
 {
-    RayTriangleIntersection rayTriangleIntersection;
+    RayTriangleIntersection closestIntersection;
+    closestIntersection.distanceFromCamera = 0;
+
+    // A position along a ray can be represented as:
+    // [1]      position = startPoint + scalar * direction
+    //          r        = s          + t      * d
     
-    /* Sample code given from the practical worksheet:
-    vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
-    vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
-    vec3 SPVector = cameraPosition-triangle.vertices[0];
-    mat3 DEMatrix(-rayDirection, e0, e1);
-    vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; */
+    // Our startPoint is the camera's position, the global variable vec3 cameraPosition
+    // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
+    vec3 rayDirection = vec3(1,1,1); // TODO: Calculate
     
-    return rayTriangleIntersection;
+    // Given a triangular plane with vertices p0, p1, p2
+    for (ModelTriangle triangle : triangles) {
+        // Point r which intersects this triangular plane is defined as: 
+        // [2]      r = p0 + u(p1 - p0) + v(p2 - p0)
+        // Simplify [2] by referring to the differences between points as edges
+        // [3]      r = p0 + ue0 + ve1
+        vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
+        vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
+        
+        // Combining [3] with [1], we get:
+        // [4]      p0 + ue0 + ve1 = s + t * d
+        // Rearrange [4] to get:
+        // [5]      -t * d + ue0 + ve1 = s - p0
+        // Represent [5] in matrix form:
+        // [6]      [ -d.x e0.x e1.x ]   [ t ]   [ s.x - p0.x ]
+        //          [ -d.y e0.y e1.y ] • [ u ] = [ s.y - p0.y ]
+        //          [ -d.z e0.z e1.z ]   [ v ]   [ s.z - p0.z ]
+        //          ^ "DEMatrix"                 ^ "SPVector"
+        vec3 SPVector = cameraPosition - triangle.vertices[0];
+        mat3 DEMatrix(-rayDirection, e0, e1);
+
+        // Rearrange [6] to get:
+        // [7]      [ t ]   [ -d.x e0.x e1.x ]^-1  [ s.x - p0.x ]
+        //          [ u ] = [ -d.y e0.y e1.y ]  •  [ s.y - p0.y ]
+        //          [ v ]   [ -d.z e0.z e1.z ]     [ s.z - p0.z ]    
+        vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
+        
+        // We have now calculated:
+        //       t = the distance along the ray
+        //       u = the u co-ordinate on the triangle's plane of the intersection point
+        //       v = the v co-ordinate on the triangle's plane of the intersection point
+        float distanceFromCamera = possibleSolution.x;
+        float u = possibleSolution.y;
+        float v = possibleSolution.z;
+        // cout << "u,v co-ordinates: (" << u << "," << v << ")" << endl;
+
+        // From here, we will need to transpose these (u,v) co-ordinates into model space
+        // And then, like in rasterisation, from model space to image space
+        float intersectionX = u; // TODO: Calculate
+        float intersectionY = v; // TODO: Calculate
+        float intersectionZ = 0; // TODO: Calculate
+        vec3 intersectionPoint = vec3(intersectionX, intersectionY, intersectionZ);
+        
+        // If this intersection point is closer to the camera than the previous closest intersection
+        if (closestIntersection.distanceFromCamera > distanceFromCamera) {
+            // Then the new intersection we have found is the new closest intersection
+            closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+        }
+    }
+    
+    // After iterating over every triangle, we will now have found the intersection closest to the camera
+    return closestIntersection;
 }
 
-void rayTrace()
+void rayTraceOverImagePlane()
 {
-    
+    // Iterate over the entire image plane
+    for (int y = 0; y < window.height; y++) {
+        for (int x = 0; x < window.width; x++) {
+            // Shoot a ray from the camera such that it intersects this pixel of the image plane
+            RayTriangleIntersection closest = getClosestIntersection(x, y);
+            
+            // Draw the colour from the closest intersection
+            Colour colour = closest.intersectedTriangle.colour;
+            window.setPixelColour(x, y, colour.toPackedInt());
+        }
+        // cout << "Raytracing for pixel row y=" << y << " completed" << endl;
+    }
 }
 
 void update()
@@ -384,7 +450,7 @@ void update()
     // transformVertexCoordinatesToCanvas();
     
     // RAYTRACE:
-    rayTrace();
+    // rayTraceOverImagePlane();
 }
 
 
