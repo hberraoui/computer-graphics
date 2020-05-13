@@ -19,7 +19,7 @@ bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
 void centerCameraPosition();
 RayTriangleIntersection getClosestIntersection(int x, int y);
-void rayTraceOverImagePlane();
+void rayTraceCanvas();
 void transformVertexCoordinatesToCanvas();
 float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
@@ -96,12 +96,6 @@ int main(int argc, char* argv[])
     //loadObjFile(hackspaceLogoObjPath);
 
     centerCameraPosition();
-    
-    // RASTERISE:
-    // transformVertexCoordinatesToCanvas();
-    
-    // RAYTRACE:
-    rayTraceOverImagePlane();
     
     SDL_Event event;
     while(true)
@@ -363,7 +357,7 @@ void transformVertexCoordinatesToCanvas(){ // a.k.a Rasterisation
 RayTriangleIntersection getClosestIntersection(int x, int y)
 {
     RayTriangleIntersection closestIntersection;
-    closestIntersection.distanceFromCamera = 0;
+    closestIntersection.distanceFromCamera = INFINITY;
 
     // A position along a ray can be represented as:
     // [1]      position = startPoint + scalar * direction
@@ -371,7 +365,10 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
     
     // Our startPoint is the camera's position, the global variable vec3 cameraPosition
     // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
-    vec3 rayDirection = vec3(1,1,1); // TODO: Calculate
+    float xPos = (x - (window.width  / 2));
+    float yPos = (y - (window.height / 2)) * -1;
+    float zPos = (scale * focalLength)     * -1;
+    vec3 rayDirection = normalize(vec3(xPos, yPos, zPos) - cameraPosition);
     
     // Given a triangular plane with vertices p0, p1, p2
     for (ModelTriangle triangle : triangles) {
@@ -407,17 +404,18 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         float distanceFromCamera = possibleSolution.x;
         float u = possibleSolution.y;
         float v = possibleSolution.z;
-        // cout << "u,v co-ordinates: (" << u << "," << v << ")" << endl;
 
         // Before continuing, we must check the constraints on u,v are met:
         if (0.0f <= u && u <= 1.0f && 0.0f <= v && v <= 1.0f && (u + v) <= 1.0f) {
             // From here, we will need to transpose these (u,v) co-ordinates into model space
-            // And then, like in rasterisation, from model space to image space
-            float intersectionX = u; // TODO: Calculate
-            float intersectionY = v; // TODO: Calculate
-            float intersectionZ = 0; // TODO: Calculate
-            vec3 intersectionPoint = vec3(intersectionX, intersectionY, intersectionZ);
+            // And then, like in rasterisation, from model space to canvas space
+            float ndcX = (u + 0.5) / window.width;
+            float ndcY = (v + 0.5) / window.height;
+            float canvasX = 2 * (ndcX) - 1;
+            float canvasY = 1 - 2 * (ndcY);
             
+            vec3 intersectionPoint = vec3(canvasX, canvasY, (cameraPosition.z + distanceFromCamera));
+
             // If this intersection point is closer to the camera than the previous closest intersection
             if (closestIntersection.distanceFromCamera > distanceFromCamera) {
                 // Then the new intersection we have found is the new closest intersection
@@ -430,30 +428,35 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
     return closestIntersection;
 }
 
-void rayTraceOverImagePlane()
+void rayTraceCanvas()
 {
-    // Iterate over the entire image plane
+    // Iterate over the entire canvas
     for (int y = 0; y < window.height; y++) {
         for (int x = 0; x < window.width; x++) {
-            // Shoot a ray from the camera such that it intersects this pixel of the image plane
+            // Shoot a ray from the camera such that it intersects this pixel of the canvas
             RayTriangleIntersection closest = getClosestIntersection(x, y);
+
+            Colour colour = BLACK;
+            if (closest.distanceFromCamera != INFINITY) {
+                colour = closest.intersectedTriangle.colour;
+            }
             
-            // Draw the colour from the closest intersection
-            Colour colour = closest.intersectedTriangle.colour;
             window.setPixelColour(x, y, colour.toPackedInt());
         }
         // cout << "Raytracing for pixel row y=" << y << " completed" << endl;
     }
+    cout << "Raytracing for entire canvas completed" << endl;
 }
 
 void update()
 {
     // Function for performing animation (shifting artifacts or moving the camera)
+    
     // RASTERISE:
     // transformVertexCoordinatesToCanvas();
     
     // RAYTRACE:
-    // rayTraceOverImagePlane();
+    rayTraceCanvas();
 }
 
 
