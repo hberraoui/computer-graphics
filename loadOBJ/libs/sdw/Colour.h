@@ -27,6 +27,11 @@ class Colour
       green = g;
       blue = b;
     }
+    
+    uint32_t toPackedInt()
+    {
+      return (255<<24) + (this->red<<16) + (this->green<<8) + this->blue;
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const Colour& colour)
