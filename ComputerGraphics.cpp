@@ -19,7 +19,11 @@ bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
 void centerCameraPosition();
 RayTriangleIntersection getClosestIntersection(int x, int y);
-void rayTraceCanvas();
+void renderWireframeCanvas();
+void rasteriseCanvas();
+void raytraceCanvas();
+void redrawCanvas();
+void changeRenderMode(int mode);
 void transformVertexCoordinatesToCanvas();
 float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
@@ -45,6 +49,7 @@ void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
 void drawStrokedTriangle(CanvasTriangle triangle);
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
 void drawLine(TexturePoint from, TexturePoint to, Colour colour);
+void drawPixel(int x, int y, uint32_t pixel);
 uint32_t vec3ToPackedInt(vec3 pixel);
 vec3 packedIntToVec3(uint32_t colour);
 void rainbowInterpolation();
@@ -70,7 +75,7 @@ vector<CanvasTriangle> displayTriangles;
 // int scale = 1;
 
 // CORNELL BOX
-float cameraStepBack = 10;
+float cameraStepBack = 40;
 int scale = 120;
 
 float focalLength;
@@ -80,6 +85,30 @@ vec3 pointWorldSpace;
 float centerOfWorld;
 //int vcounter = 0;
 vec3 cameraPosition;
+
+enum renderModes {
+    WIREFRAME,
+    RASTER,
+    RAYTRACE
+};
+
+int renderMode = RAYTRACE;
+
+void redrawCanvas()
+{
+    switch (renderMode) {
+        case WIREFRAME:
+            renderWireframeCanvas();
+            break;
+        case RASTER:
+            rasteriseCanvas();
+            break;
+        default:
+        case RAYTRACE:
+            raytraceCanvas();
+            break;
+    }
+}
 
 // For the sake of Windows
 int WinMain(int argc, char* argv[])
@@ -96,6 +125,8 @@ int main(int argc, char* argv[])
     //loadObjFile(hackspaceLogoObjPath);
 
     centerCameraPosition();
+    renderMode = WIREFRAME;
+    redrawCanvas();
     
     SDL_Event event;
     while(true)
@@ -337,7 +368,7 @@ void transformVertexCoordinatesToCanvas(){ // a.k.a Rasterisation
             // pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
 
             /* // Draw vertex to make sure it is in the correct position
-            window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, colour.toPackedInt());
+            drawPixel(pointCanvasSpace.x, pointCanvasSpace.y, colour.toPackedInt());
             vcounter++;
             cout << "vertex " << vcounter << " drawn" << endl; */
             
@@ -428,9 +459,9 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
     return closestIntersection;
 }
 
-void rayTraceCanvas()
+void raytraceCanvas()
 {
-    // Iterate over the entire canvas
+    // Iterate over every pixel in the canvas
     for (int y = 0; y < window.height; y++) {
         for (int x = 0; x < window.width; x++) {
             // Shoot a ray from the camera such that it intersects this pixel of the canvas
@@ -441,76 +472,92 @@ void rayTraceCanvas()
                 colour = closest.intersectedTriangle.colour;
             }
             
-            window.setPixelColour(x, y, colour.toPackedInt());
+            drawPixel(x, y, colour.toPackedInt());
         }
-        // cout << "Raytracing for pixel row y=" << y << " completed" << endl;
     }
-    cout << "Raytracing for entire canvas completed" << endl;
+}
+
+void renderWireframeCanvas()
+{
+    window.clearPixels();
+    transformVertexCoordinatesToCanvas();
+    for (CanvasTriangle triangle : displayTriangles) {
+        drawStrokedTriangle(triangle);
+    }
+}
+
+void rasteriseCanvas()
+{
+    window.clearPixels();
+    transformVertexCoordinatesToCanvas();
+    for (CanvasTriangle triangle : displayTriangles) {
+        drawFilledTriangle(triangle);
+    }
 }
 
 void update()
 {
     // Function for performing animation (shifting artifacts or moving the camera)
+    // WIREFRAME:
+    // renderWireframeCanvas();
     
     // RASTERISE:
-    // transformVertexCoordinatesToCanvas();
+    // rasteriseCanvas();
     
     // RAYTRACE:
-    rayTraceCanvas();
-}
-
-
-int triangleStrokeCounter = 0;
-void strokeNextTriangle()
-{
-    if (triangleStrokeCounter < (int)displayTriangles.size()){
-        // if (triangleStrokeCounter == 0) window.clearPixels();
-        drawStrokedTriangle(displayTriangles.at(triangleStrokeCounter));
-        triangleStrokeCounter++;
-        cout << "Stroked triangle #" << triangleStrokeCounter << endl;
-    } else { 
-        cout << "No more triangles to stroke" << endl;
-        triangleStrokeCounter = 0;
-    }
-}
-
-int triangleFillCounter = 0;
-void fillNextTriangle()
-{
-    if (triangleFillCounter < (int)displayTriangles.size()){
-        // if (triangleFillCounter == 0) window.clearPixels();
-        drawFilledTriangle(displayTriangles.at(triangleFillCounter));
-        triangleFillCounter++;
-        cout << "Filled triangle #" << triangleFillCounter << endl;
-    } else { 
-        cout << "No more triangles to fill" << endl;
-        triangleFillCounter = 0;
-    }
+    // raytraceCanvas();
 }
 
 // CONTROLS:
+// ← Left arrow key: Shift camera position to the left
 // → Right arrow key: Shift camera position to the right
-// ↑ Up arrow key: Fill next triangle
-// M1 Mouse click: Stroke next triangle
+// w Key: change to wireframe mode
+// r Key: change to raster mode
+// t Key: change to raytrace mode
+// c Key: clear the window
+
+float cameraSpeed = 0.2;
+
+void changeRenderMode(int mode)
+{
+    renderMode = mode;
+    redrawCanvas();
+}
 
 void handleEvent(SDL_Event event)
 {
     if(event.type == SDL_KEYDOWN) {
         if(event.key.keysym.sym == SDLK_LEFT) {
-            cout << "LEFT" << endl;
+            cameraPosition.x -= cameraSpeed;
+            redrawCanvas();
+            cout << "LEFT: Camera shifted left." << endl;
         } else if(event.key.keysym.sym == SDLK_RIGHT) {
-            cout << "RIGHT: ";
-            cameraPosition.x += 0.2;
-            cout << "Camera shift to the right." << endl;
+            cameraPosition.x += cameraSpeed;
+            redrawCanvas();
+            cout << "RIGHT: Camera shifted right." << endl;
         } else if(event.key.keysym.sym == SDLK_UP) {
-            cout << "UP: ";
-            fillNextTriangle();
-        }  else if(event.key.keysym.sym == SDLK_DOWN) {
-            cout << "DOWN" << endl;
+            cameraPosition.y -= cameraSpeed;
+            redrawCanvas();
+            cout << "UP: Camera shifted up." << endl;
+        } else if(event.key.keysym.sym == SDLK_DOWN) {
+            cameraPosition.y += cameraSpeed;
+            redrawCanvas();
+            cout << "DOWN: Camera shifted down." << endl;
+        } else if(event.key.keysym.sym == SDLK_w) {
+            changeRenderMode(WIREFRAME);
+            cout << "w KEY: Switched to WIREFRAME MODE." << endl;
+        } else if(event.key.keysym.sym == SDLK_r) {
+            changeRenderMode(RASTER);
+            cout << "r KEY: Switched to RASTER MODE." << endl;
+        } else if(event.key.keysym.sym == SDLK_t) {
+            changeRenderMode(RAYTRACE);
+            cout << "r KEY: Switched to RAYTRACE MODE." << endl;
+        } else if(event.key.keysym.sym == SDLK_c) {
+            window.clearPixels();
+            cout << "c KEY: Window cleared." << endl;
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
-        cout << "Mouse clicked: ";
-        strokeNextTriangle();
+        cout << "MOUSE CLICKED" << endl;
     }
 }
 
@@ -584,7 +631,7 @@ void drawRedNoise()
             float green = 0.0;
             float blue = 0.0;
             uint32_t colour = (255<<24) + (int(red)<<16) + (int(green)<<8) + int(blue);
-            window.setPixelColour(x, y, colour);
+            drawPixel(x, y, colour);
         }
     }
 }
@@ -625,7 +672,7 @@ void greyscaleInterpolation()
     for(int y = 0; y < window.height; y++) {
         for(int x = 0; x < window.width; x++) {
             vec3 c(v.at(x), v.at(x), v.at(x));
-            window.setPixelColour(x, y, vec3ToPackedInt(c));
+            drawPixel(x, y, vec3ToPackedInt(c));
         }
     }
 }
@@ -653,18 +700,18 @@ void rainbowInterpolation()
     vec3 yellowPixel(255,255,0);
     vec3 greenPixel(0,255,0);
 
-    window.setPixelColour(0, window.height-1, vec3ToPackedInt(yellowPixel));
-    window.setPixelColour(window.width-1, window.height-1, vec3ToPackedInt(greenPixel));
+    drawPixel(0, window.height-1, vec3ToPackedInt(yellowPixel));
+    drawPixel(window.width-1, window.height-1, vec3ToPackedInt(greenPixel));
 
     std::vector<vec3> v;
     v = interpolate(redPixel, yellowPixel, window.height);
     for(int y = 0; y < window.height; y++) {
-        window.setPixelColour(0, y, vec3ToPackedInt(v.at(y)));
+        drawPixel(0, y, vec3ToPackedInt(v.at(y)));
     }
 
     v = interpolate(bluePixel, greenPixel, window.height);
     for(int y=0; y < window.height; y++) {
-        window.setPixelColour(window.width-1, y, vec3ToPackedInt(v.at(y)));
+        drawPixel(window.width-1, y, vec3ToPackedInt(v.at(y)));
     }
 
     for(int y=0; y < window.height; y++) {
@@ -672,7 +719,7 @@ void rainbowInterpolation()
                                         packedIntToVec3(window.getPixelColour(window.width-1,y)),
                                         window.width);
         for(int x=0; x < window.width; x++) {
-            window.setPixelColour(x, y, vec3ToPackedInt(v.at(x)));
+            drawPixel(x, y, vec3ToPackedInt(v.at(x)));
         }
     }
 }
@@ -681,13 +728,22 @@ void rainbowInterpolation()
 // 2D TASKS
 ////////////////
 
+void drawPixel(int x, int y, uint32_t pixel)
+{
+    if (x < window.width && y < window.height && x > 0 && y > 0) {
+        window.setPixelColour(x, y, pixel);
+    }    
+}
+
 // 2D task 1
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
     int steps = calcSteps(from,to);
     std::vector<CanvasPoint> points = interpolate(from, to, steps);
     for (int i = 0; i < steps; i++) {
-        window.setPixelColour(std::floor(points.at(i).x), std::floor(points.at(i).y), colour.toPackedInt());
+        int x = std::floor(points.at(i).x);
+        int y = std::floor(points.at(i).y);
+        drawPixel(x, y, colour.toPackedInt());
     }
 }
 
@@ -749,7 +805,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
             float startX = std::min(x1,x2);
             float endX = std::max(x1,x2);
             for (int x = startX; x <= endX; x++)
-                window.setPixelColour(x, y, colour.toPackedInt());
+                drawPixel(x, y, colour.toPackedInt());
         }
 
         // Fill bottom triangle (top-to-bottom, left-to-right)
@@ -759,7 +815,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
             float startX = std::min(x1,x2);
             float endX = std::max(x1,x2);
             for (int x = startX; x <= endX; x++)
-                window.setPixelColour(x, y, colour.toPackedInt());
+                drawPixel(x, y, colour.toPackedInt());
         }
     
     } 
@@ -770,7 +826,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
             float startX = std::min(x1,x2);
             float endX = std::max(x1,x2);
             for (int x = startX; x <= endX; x++)
-                window.setPixelColour(x, y, colour.toPackedInt());
+                drawPixel(x, y, colour.toPackedInt());
         }
     }
 
@@ -791,7 +847,7 @@ bool drawPixelMap(PixelMap img, int startX, int startY)
             for (int x = startX; x < img.width; x++) {
                 uint32_t pixel = img.pixels.at(x + img.width*y);
                 if (x < window.width && y < window.height) {
-                    window.setPixelColour(x,y,pixel);
+                    drawPixel(x,y,pixel);
                 }
             }
         }
@@ -951,7 +1007,7 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
             int y = topT.vertices[0].y + row;
             TexturePoint texP = textureRow.at(column);
             uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
-            window.setPixelColour(x, y, pixel);
+            drawPixel(x, y, pixel);
         }
     }
     
@@ -984,7 +1040,7 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
             int y = bottomT.vertices[0].y + row;
             TexturePoint texP = textureRow.at(column);
             uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
-            window.setPixelColour(x, y, pixel);
+            drawPixel(x, y, pixel);
         }
     }
 }
