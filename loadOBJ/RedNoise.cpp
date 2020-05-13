@@ -42,6 +42,8 @@ int calcSteps(float fromX, float fromY, float toX, float toY);
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 vector<Colour> palette;
+vector<vec3> textureVertices;
+vector<vec2> vertexTextureIndexes;
 vector<vec3> vertices;
 vector<ModelTriangle> triangles;
 vector<CanvasTriangle> displayTriangles;
@@ -194,14 +196,14 @@ bool loadObjFile(string filepath){
 	string usemtl = "usemtl";
 	string v = "v";
 	string f = "f";
+	string vt = "vt";
+	string mtllib = "mtllib";
 	
 	string objectName;
 	string colorName;
 	
-	//cout << "im here 3 " << endl;
 	
 	if (file.is_open()) {
-		//cout << "im here 4 " << endl;
 		string line;
 		char delim = ' ';
 		
@@ -224,18 +226,22 @@ bool loadObjFile(string filepath){
 				colorName = tokens[1];
 			}
 			
-			// v line
-			else if (v.compare(tokens[0]) == 0){
+			// v or vt line
+			else if (v.compare(tokens[0]) == 0 || vt.compare(tokens[0]) == 0){
 				float v1 = stof(tokens[1]);
 				float v2 = stof(tokens[2]);
 				float v3 = stof(tokens[3]);
 				vec3 vertex = vec3(v1, v2, v3);
-				vertices.push_back(vertex);
+				if (v.compare(tokens[0]) == 0)
+					vertices.push_back(vertex);
+				else
+					textureVertices.push_back(vertex);
 			}
 			
 			// f line
 			else if (f.compare(tokens[0]) == 0) {
 				vec3 faceVertices[3];
+				
 				for (int i = 0; i < 3; i++) {
 					string *faceValues = split (tokens[i+1], '/');
 					
@@ -246,8 +252,10 @@ bool loadObjFile(string filepath){
 					int vertexIndex = (stoi(faceValues[0])) - 1;
 					
 					if (faceValues[1].compare("") != 0) {
-						int textureNumber = (stoi(faceValues[1])) - 1; // question mark
-						cout << "tex num" << textureNumber << endl;
+						int textureIndex = (stoi(faceValues[1])) - 1; // question mark
+						cout << "tex num" << textureIndex << endl;
+						vertexTextureIndexes.push_back({vertexIndex, textureIndex});
+						
 					}
 					
 					faceVertices[i] = vertices.at(vertexIndex);
@@ -276,6 +284,17 @@ bool loadObjFile(string filepath){
 														faceVertices[2], colour);
 				
 				triangles.push_back(triangle);
+			} 
+			
+			else if (mtllib.compare(tokens[0]) == 0) {
+				// could get the mtllibrary name
+			}
+			
+			else {
+				if (line != ""){ 
+					cout << "undefined line in OBJ" << endl; 
+					cout << line << endl;
+				}
 			}
 			
 		}
@@ -295,10 +314,7 @@ bool loadMtlFile(string filepath){
 	ifstream file;
 	file.open(filepath);
 	
-	cout << "im here" << endl;
-	
 	if (file.is_open()) {
-		cout << "im here 2" << endl;
 		string line;
 		char delim = ' ';
 		string newmtl = "newmtl";
@@ -325,9 +341,17 @@ bool loadMtlFile(string filepath){
 				int b = std::round(stof(tokens[3]) * 255);
 				
 				palette.push_back(Colour(colorName, r, g, b));
+			} else {
+				if (line != ""){
+					cout << "undefined line in MTL" << endl;
+					cout << line << endl;
+				}
 			}
 			
 		}
+		
+		cout << "I am finished with mtl" << endl; 
+		
 		file.close();
 	} else {
 		printf("Loading error!\n");
@@ -349,7 +373,7 @@ void transformVertexCoordinatesToCanvas(){
 		//cout<<"triangle: "<< i+1 <<endl;
 		
 		Colour colour = triangles.at(i).colour;
-		uint32_t pixel = (255<<24) + (int(colour.red)<<16) + (int(colour.green)<<8) + int(colour.blue);
+		//uint32_t pixel = (255<<24) + (int(colour.red)<<16) + (int(colour.green)<<8) + int(colour.blue);
 		
 		CanvasPoint displayVertices[3];
 		
@@ -386,7 +410,7 @@ void transformVertexCoordinatesToCanvas(){
 			
 			
 			// Draw
-			window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, pixel);
+			//window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, pixel);
 			
 			//vcounter++;
 			//cout << "vertex " << vcounter << " drawn" << endl;
@@ -411,37 +435,53 @@ void update()
   transformVertexCoordinatesToCanvas();
 }
 
-
 int triangleStrokeCounter = 0;
 int triangleFillCounter = 0;
+
+void drawAllFilledTriangles(){
+	window.clearPixels();
+	
+	while (triangleFillCounter < (int)displayTriangles.size()){
+			drawFilledTriangle(displayTriangles.at(triangleFillCounter));
+			triangleFillCounter++;
+			//cout << "filled a triangle " << triangleFillCounter << endl;
+	}
+	
+	triangleFillCounter = 0;
+}
+
+void drawAllStrokedTriangles(){
+	window.clearPixels();
+	
+	while (triangleStrokeCounter < (int)displayTriangles.size()){
+			drawStrokedTriangle(displayTriangles.at(triangleStrokeCounter));
+			triangleStrokeCounter++;
+			//cout << "stroked a triangle " << triangleStrokeCounter << endl;
+	}
+	
+	triangleStrokeCounter = 0;
+}
+
+
 void handleEvent(SDL_Event event)
 {
   if(event.type == SDL_KEYDOWN) {
     if(event.key.keysym.sym == SDLK_LEFT) cout << "LEFT" << endl;
     else if(event.key.keysym.sym == SDLK_RIGHT) cameraPosition.x += 0.2;
+	
+	
     else if(event.key.keysym.sym == SDLK_UP) {
 		cout << "UP pressed" << endl;
-		if (triangleFillCounter < (int)displayTriangles.size()){
-			drawFilledTriangle(displayTriangles.at(triangleFillCounter));
-			triangleFillCounter++;
-			cout << "filled a triangle " << triangleFillCounter << endl;
-		} else { 
-		cout << "no more triangles to fill" << endl;
-		triangleFillCounter = 0;
-		}
+		drawAllFilledTriangles();
+
 	}
     else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
 	}
+	
+	
 	else if(event.type == SDL_MOUSEBUTTONDOWN) {
 		cout << "Mouse clicked" << endl;
-		if (triangleStrokeCounter < (int)displayTriangles.size()){
-			drawStrokedTriangle(displayTriangles.at(triangleStrokeCounter));
-			triangleStrokeCounter++;
-			cout << "stroked a triangle " << triangleStrokeCounter << endl;
-		} else { 
-		cout << "no more triangles to stroke" << endl;
-		triangleStrokeCounter = 0;
-		}
+		drawAllStrokedTriangles();
   }
 }
 
