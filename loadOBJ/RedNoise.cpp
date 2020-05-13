@@ -25,6 +25,8 @@ using namespace glm;
 
 string cornellBoxMtlPath = "../cornell-box/cornell-box.mtl";
 string cornellBoxObjPath = "../cornell-box/cornell-box.obj";
+string hackspaceLogoMtlPath = "../hackspace_logo/materials.mtl";
+string hackspaceLogoObjPath = "../hackspace_logo/logo.obj";
 
 void draw();
 void update();
@@ -44,11 +46,18 @@ vector<vec3> vertices;
 vector<ModelTriangle> triangles;
 vector<CanvasTriangle> displayTriangles;
 
+// LOGO
+// float cameraStepBack = 200;
+// int scale = 1;
+
+// CORNELL BOX
 float cameraStepBack = 10;
+int scale = 120;
+
 float focalLength;
 vec3 pointCameraSpace;
 vec3 pointCanvasSpace;
-int scale = 120;
+
 vec3 pointWorldSpace;
 
 float centerOfWorld;
@@ -105,6 +114,9 @@ int main(int argc, char* argv[])
 	
 	loadMtlFile(cornellBoxMtlPath);
 	loadObjFile(cornellBoxObjPath);
+	
+	//loadMtlFile(hackspaceLogoMtlPath);
+	//loadObjFile(hackspaceLogoObjPath);
 	// we have world triangles
 	
 	centerCameraPosition();
@@ -112,7 +124,7 @@ int main(int argc, char* argv[])
 	
 	cout << "f: " << focalLength << endl;
 	
-	//transformVertexCoordinatesToCanvas();
+	transformVertexCoordinatesToCanvas();
 		
 		
 	
@@ -166,7 +178,7 @@ void centerCameraPosition(){
 	
 	cout << "z world center " << centerOfWorld << endl;
 	
-	//cout << maxX << " " << minX << " " << maxY << " " << minY << " " << endl;
+	cout << maxX << " " << minX << " " << maxY << " " << minY << " " << maxZ << " " << minZ << endl;
 	
 	cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
 	cout << "camera: "<< cameraPosition.x << " "<< cameraPosition.y<< " "<< cameraPosition.z <<endl;
@@ -186,7 +198,10 @@ bool loadObjFile(string filepath){
 	string objectName;
 	string colorName;
 	
+	//cout << "im here 3 " << endl;
+	
 	if (file.is_open()) {
+		//cout << "im here 4 " << endl;
 		string line;
 		char delim = ' ';
 		
@@ -223,22 +238,38 @@ bool loadObjFile(string filepath){
 				vec3 faceVertices[3];
 				for (int i = 0; i < 3; i++) {
 					string *faceValues = split (tokens[i+1], '/');
+					
+					// check size of faceValues
+					//cout << "fv size: " << (int)faceValues->size() << endl;
+					//cout << "fv1 value: " << faceValues[1] << endl;
+					
 					int vertexIndex = (stoi(faceValues[0])) - 1;
-					// int textureNumber = stoi (faceValues [i]) // question mark
+					
+					if (faceValues[1].compare("") != 0) {
+						int textureNumber = (stoi(faceValues[1])) - 1; // question mark
+						cout << "tex num" << textureNumber << endl;
+					}
+					
 					faceVertices[i] = vertices.at(vertexIndex);
+					
 				}
 				
 				//for (int i=0; i<3; i++){
 					//cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
 				//}
 				
-				int paletteIndex=0;
-				while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
-					paletteIndex++;
-				}
+				Colour colour = RED;
 				
-				Colour colour = palette.at(paletteIndex);
-				//cout << colour.name << endl;
+				if ((int)palette.size() > 0){
+				
+					int paletteIndex=0;
+					while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
+						paletteIndex++;
+					}
+					
+					colour = palette.at(paletteIndex);
+					//cout << colour.name << endl;
+				}
 				
 				
 				ModelTriangle triangle = ModelTriangle(faceVertices[0], faceVertices[1], 
@@ -248,6 +279,8 @@ bool loadObjFile(string filepath){
 			}
 			
 		}
+		
+		cout << "I am finished with obj" << endl; 
 		
 		file.close();
 	} else {
@@ -262,7 +295,10 @@ bool loadMtlFile(string filepath){
 	ifstream file;
 	file.open(filepath);
 	
+	cout << "im here" << endl;
+	
 	if (file.is_open()) {
+		cout << "im here 2" << endl;
 		string line;
 		char delim = ' ';
 		string newmtl = "newmtl";
@@ -348,6 +384,8 @@ void transformVertexCoordinatesToCanvas(){
 			pointCanvasSpace.y = round(cy * scale + HEIGHT/2);
 			//pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
 			
+			
+			// Draw
 			window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, pixel);
 			
 			//vcounter++;
