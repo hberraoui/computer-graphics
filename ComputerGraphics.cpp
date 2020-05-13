@@ -6,27 +6,11 @@
 #include <PixelMap.h>
 #include <fstream>
 #include <vector>
-#include <fstream>
 #include <string.h>
+#include <RayTriangleIntersection.h>
 
 using namespace std;
 using namespace glm;
-
-#define WIDTH 640	
-#define HEIGHT 480
-
-// IMPORTED
-#define WHITE Colour(255,255,255)
-#define RED Colour(255,0,0)
-#define GREEN Colour(0,255,0)
-#define BLUE Colour(0,0,255)
-#define BLACK Colour(0,0,0)
-// --------------------
-
-string cornellBoxMtlPath = "./cornell-box/cornell-box.mtl";
-string cornellBoxObjPath = "./cornell-box/cornell-box.obj";
-string hackspaceLogoMtlPath = "./hackspace-logo/materials.mtl";
-string hackspaceLogoObjPath = "./hackspace-logo/logo.obj";
 
 void draw();
 void update();
@@ -35,41 +19,6 @@ bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
 void centerCameraPosition();
 void transformVertexCoordinatesToCanvas();
-void drawStrokedTriangles();
-void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
-int calcSteps(CanvasPoint from, CanvasPoint to);
-int calcSteps(float fromX, float fromY, float toX, float toY);
-
-DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
-vector<Colour> palette;
-vector<vec3> vertices;
-vector<ModelTriangle> triangles;
-vector<CanvasTriangle> displayTriangles;
-
-// LOGO
-// float cameraStepBack = 200;
-// int scale = 1;
-
-// CORNELL BOX
-float cameraStepBack = 10;
-int scale = 120;
-
-float focalLength;
-vec3 pointCameraSpace;
-vec3 pointCanvasSpace;
-
-vec3 pointWorldSpace;
-
-float centerOfWorld;
-
-//int vcounter = 0;
-	
-vec3 cameraPosition;
-
-
-
-
-// IMPORTED STUFF ----------------------------------------------------
 float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
@@ -100,8 +49,35 @@ void rainbowInterpolation();
 void greyscaleInterpolation();
 void drawRedNoise();
 
-// --------------------------------------------------------------------------
+#define WIDTH 640    
+#define HEIGHT 480
 
+string cornellBoxMtlPath = "./cornell-box/cornell-box.mtl";
+string cornellBoxObjPath = "./cornell-box/cornell-box.obj";
+string hackspaceLogoMtlPath = "./hackspace-logo/materials.mtl";
+string hackspaceLogoObjPath = "./hackspace-logo/logo.obj";
+
+DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
+vector<Colour> palette;
+vector<vec3> vertices;
+vector<ModelTriangle> triangles;
+vector<CanvasTriangle> displayTriangles;
+
+// LOGO
+// float cameraStepBack = 200;
+// int scale = 1;
+
+// CORNELL BOX
+float cameraStepBack = 10;
+int scale = 120;
+
+float focalLength;
+vec3 pointCameraSpace;
+vec3 pointCanvasSpace;
+vec3 pointWorldSpace;
+float centerOfWorld;
+//int vcounter = 0;
+vec3 cameraPosition;
 
 // For the sake of Windows
 int WinMain(int argc, char* argv[])
@@ -112,345 +88,359 @@ int WinMain(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-	
-	loadMtlFile(cornellBoxMtlPath);
-	loadObjFile(cornellBoxObjPath);
-	
-	//loadMtlFile(hackspaceLogoMtlPath);
-	//loadObjFile(hackspaceLogoObjPath);
-	// we have world triangles
-	
-	centerCameraPosition();
-	focalLength = abs((cameraPosition.z - centerOfWorld)/2);
-	
-	cout << "f: " << focalLength << endl;
-	
-	transformVertexCoordinatesToCanvas();
-		
-		
-	
-/* 	for (Colour c : palette){
-		cout << c << endl; 
-	} */
-	
-	SDL_Event event;
-	while(true)
-	{
-	// We MUST poll for events - otherwise the window will freeze !
-	if(window.pollForInputEvents(&event)) handleEvent(event);
-	update();
-	//draw();
-	// Need to render the frame at the end, or nothing actually gets shown on the screen !
-	window.renderFrame();
-	}
+    loadMtlFile(cornellBoxMtlPath);
+    loadObjFile(cornellBoxObjPath);    
+    //loadMtlFile(hackspaceLogoMtlPath);
+    //loadObjFile(hackspaceLogoObjPath);
+
+    centerCameraPosition();
+    
+    SDL_Event event;
+    while(true)
+    {
+        // We MUST poll for events - otherwise the window will freeze !
+        if(window.pollForInputEvents(&event)) handleEvent(event);
+        update();
+        // draw();
+        // Need to render the frame at the end, or nothing actually gets shown on the screen !
+        window.renderFrame();
+    }
 }
 
 
-void centerCameraPosition(){
-	
-	float minX = triangles.at(0).vertices[0].x;
-	float maxX = triangles.at(0).vertices[0].x;
-	float minY = triangles.at(0).vertices[0].y;
-	float maxY = triangles.at(0).vertices[0].y;
-	float minZ = triangles.at(0).vertices[0].z;
-	float maxZ = triangles.at(0).vertices[0].z;
-	float wx;
-	float wy;
-	float wz;
-	
-	//cout << maxX << " " << minX << " " << maxY << " " << minY << " " << endl;
-	
-	for(int i=0; i<(int)triangles.size(); i++){
-		for(int j=0; j<3; j++){
-			wx = triangles.at(i).vertices[j].x;
-			wy = triangles.at(i).vertices[j].y;
-			wz = triangles.at(i).vertices[j].z;
-			if (wx <= minX) minX = wx;
-			if (wx >= maxX) maxX = wx;
-			if (wy <= minY) minY = wy;
-			if (wy >= maxY) maxY = wy;
-			if (wz <= minZ) minZ = wz;
-			if (wz >= maxZ) maxZ = wz;
-		}
-	}
-	
-	cout << minZ << " " << maxZ << endl; 
-	centerOfWorld = (maxZ + minZ)/2;
-	
-	cout << "z world center " << centerOfWorld << endl;
-	
-	cout << maxX << " " << minX << " " << maxY << " " << minY << " " << maxZ << " " << minZ << endl;
-	
-	cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
-	cout << "camera: "<< cameraPosition.x << " "<< cameraPosition.y<< " "<< cameraPosition.z <<endl;
-			
+void centerCameraPosition()
+{
+    float minX = triangles.at(0).vertices[0].x;
+    float maxX = triangles.at(0).vertices[0].x;
+    float minY = triangles.at(0).vertices[0].y;
+    float maxY = triangles.at(0).vertices[0].y;
+    float minZ = triangles.at(0).vertices[0].z;
+    float maxZ = triangles.at(0).vertices[0].z;
+    float wx;
+    float wy;
+    float wz;
+
+    for(int i=0; i<(int)triangles.size(); i++){
+        for(int j=0; j<3; j++){
+            wx = triangles.at(i).vertices[j].x;
+            wy = triangles.at(i).vertices[j].y;
+            wz = triangles.at(i).vertices[j].z;
+            if (wx <= minX) minX = wx;
+            if (wx >= maxX) maxX = wx;
+            if (wy <= minY) minY = wy;
+            if (wy >= maxY) maxY = wy;
+            if (wz <= minZ) minZ = wz;
+            if (wz >= maxZ) maxZ = wz;
+        }
+    }
+    // cout << maxX << " " << minX << " " << maxY << " " << minY << " " << maxZ << " " << minZ << endl;
+ 
+    centerOfWorld = (maxZ + minZ)/2;
+    // cout << "z world center " << centerOfWorld << endl;
+    
+    cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
+    // cout << "camera: " << cameraPosition.x << " "<< cameraPosition.y<< " "<< cameraPosition.z <<endl;
+
+    focalLength = abs((cameraPosition.z - centerOfWorld)/2);
+    // cout << "focal length: " << focalLength << endl;
 }
 
 
 bool loadObjFile(string filepath){
-	ifstream file;
-	file.open(filepath);
-	
-	string o = "o";
-	string usemtl = "usemtl";
-	string v = "v";
-	string f = "f";
-	
-	string objectName;
-	string colorName;
-	
-	//cout << "im here 3 " << endl;
-	
-	if (file.is_open()) {
-		//cout << "im here 4 " << endl;
-		string line;
-		char delim = ' ';
-		
-		while (getline(file, line)) {
-			//printf("%s", line.c_str());
-			//cout << endl;
-			string *tokens = split(line, delim);
-/* 			int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-			for (int i=0; i<numberOfTokens; i++){
-				cout << tokens[i] << endl;
-			} */
-			
-			// o line
-			if (o.compare(tokens[0]) == 0){
-				objectName = tokens[1];
-			} 
-			
-			// usemtl line
-			else if (usemtl.compare(tokens[0]) == 0){
-				colorName = tokens[1];
-			}
-			
-			// v line
-			else if (v.compare(tokens[0]) == 0){
-				float v1 = stof(tokens[1]);
-				float v2 = stof(tokens[2]);
-				float v3 = stof(tokens[3]);
-				vec3 vertex = vec3(v1, v2, v3);
-				vertices.push_back(vertex);
-			}
-			
-			// f line
-			else if (f.compare(tokens[0]) == 0) {
-				vec3 faceVertices[3];
-				for (int i = 0; i < 3; i++) {
-					string *faceValues = split (tokens[i+1], '/');
-					
-					// check size of faceValues
-					//cout << "fv size: " << (int)faceValues->size() << endl;
-					//cout << "fv1 value: " << faceValues[1] << endl;
-					
-					int vertexIndex = (stoi(faceValues[0])) - 1;
-					
-					if (faceValues[1].compare("") != 0) {
-						int textureNumber = (stoi(faceValues[1])) - 1; // question mark
-						cout << "tex num" << textureNumber << endl;
-					}
-					
-					faceVertices[i] = vertices.at(vertexIndex);
-					
-				}
-				
-				//for (int i=0; i<3; i++){
-					//cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
-				//}
-				
-				Colour colour = RED;
-				
-				if ((int)palette.size() > 0){
-				
-					int paletteIndex=0;
-					while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
-						paletteIndex++;
-					}
-					
-					colour = palette.at(paletteIndex);
-					//cout << colour.name << endl;
-				}
-				
-				
-				ModelTriangle triangle = ModelTriangle(faceVertices[0], faceVertices[1], 
-														faceVertices[2], colour);
-				
-				triangles.push_back(triangle);
-			}
-			
-		}
-		
-		cout << "I am finished with obj" << endl; 
-		
-		file.close();
-	} else {
-		printf("Loading error!\n");
-		return false;
-	}
-	
-	return true;
+    ifstream file;
+    file.open(filepath);
+    
+    string o = "o";
+    string usemtl = "usemtl";
+    string v = "v";
+    string f = "f";
+    
+    string objectName;
+    string colorName;
+
+    if (file.is_open()) {
+        string line;
+        char delim = ' ';
+        
+        while (getline(file, line)) {
+            // cout << line.c_str() << endl;
+            string *tokens = split(line, delim);
+            
+            /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
+            for (int i=0; i<numberOfTokens; i++){
+                cout << tokens[i] << endl;
+            } */
+            
+            // o line
+            if (o.compare(tokens[0]) == 0){
+                objectName = tokens[1];
+            } 
+            
+            // usemtl line
+            else if (usemtl.compare(tokens[0]) == 0){
+                colorName = tokens[1];
+            }
+            
+            // v line
+            else if (v.compare(tokens[0]) == 0){
+                float v1 = stof(tokens[1]);
+                float v2 = stof(tokens[2]);
+                float v3 = stof(tokens[3]);
+                vec3 vertex = vec3(v1, v2, v3);
+                vertices.push_back(vertex);
+            }
+            
+            // f line
+            else if (f.compare(tokens[0]) == 0) {
+                vec3 faceVertices[3];
+                for (int i = 0; i < 3; i++) {
+                    string *faceValues = split (tokens[i+1], '/');
+                    
+                    // check size of faceValues
+                    // cout << "fv size: " << (int)faceValues->size() << endl;
+                    // cout << "fv1 value: " << faceValues[1] << endl;
+                    
+                    int vertexIndex = (stoi(faceValues[0])) - 1;
+                    
+                    if (faceValues[1].compare("") != 0) {
+                        int textureNumber = (stoi(faceValues[1])) - 1; // question mark
+                        cout << "tex num" << textureNumber << endl;
+                    }
+                    
+                    faceVertices[i] = vertices.at(vertexIndex);
+                    
+                }
+                
+                /* for (int i=0; i<3; i++){
+                    cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
+                } */
+                
+                Colour colour = RED;
+                
+                if ((int)palette.size() > 0){
+                
+                    int paletteIndex=0;
+                    while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
+                        paletteIndex++;
+                    }
+                    
+                    colour = palette.at(paletteIndex);
+                    // cout << colour.name << endl;
+                }
+                
+                
+                ModelTriangle triangle = ModelTriangle(faceVertices[0], faceVertices[1], 
+                                                        faceVertices[2], colour);
+                
+                triangles.push_back(triangle);
+            }
+            
+        }
+        
+        // cout << "I am finished with obj" << endl; 
+        
+        file.close();
+    } else {
+        printf("Loading error!\n");
+        return false;
+    }
+    
+    return true;
 }
 
 bool loadMtlFile(string filepath){
-	ifstream file;
-	file.open(filepath);
-	
-	cout << "im here" << endl;
-	
-	if (file.is_open()) {
-		cout << "im here 2" << endl;
-		string line;
-		char delim = ' ';
-		string newmtl = "newmtl";
-		string kd = "Kd";
-		string colorName;
+    ifstream file;
+    file.open(filepath);
 
-		while (getline(file, line)) {
-			//printf("%s", line.c_str());
-			//cout << endl;
-			string *tokens = split(line, delim);
-			//int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-			//cout << tokens << endl;
-			
-			// newmtl line
-			if (newmtl.compare(tokens[0]) == 0){
-				//cout << "MTL match" << endl;
-				colorName = tokens[1];
-			}
-			// Kd line
-			else if (kd.compare(tokens[0]) == 0){
-				//cout << "KD match" << endl;
-				int r = std::round(stof(tokens[1]) * 255);
-				int g = std::round(stof(tokens[2]) * 255);
-				int b = std::round(stof(tokens[3]) * 255);
-				
-				palette.push_back(Colour(colorName, r, g, b));
-			}
-			
-		}
-		file.close();
-	} else {
-		printf("Loading error!\n");
-		return false;
-	}
-	
-	return true;
-}	
+    if (file.is_open()) {
+        string line;
+        char delim = ' ';
+        string newmtl = "newmtl";
+        string kd = "Kd";
+        string colorName;
 
-void transformVertexCoordinatesToCanvas(){
-	displayTriangles.clear();
-	// loop through all triangles in the world
-	for(int i=0; i<(int)triangles.size(); i++){
-
-/* 		cout << "firt vertex of every stored triangles in triangles " 
-		<< triangles.at(i).vertices[0].x << " "
-		<< triangles.at(i).vertices[0].y << " "
-		<< triangles.at(i).vertices[0].z << endl; */
-		//cout<<"triangle: "<< i+1 <<endl;
-		
-		Colour colour = triangles.at(i).colour;
-		uint32_t pixel = (255<<24) + (int(colour.red)<<16) + (int(colour.green)<<8) + int(colour.blue);
-		
-		CanvasPoint displayVertices[3];
-		
-		// loop through all vertices in the world triangle																
-		for(int j=0; j<3; j++){
-			pointWorldSpace = vec3(triangles.at(i).vertices[j].x,
-							       triangles.at(i).vertices[j].y,
-							       triangles.at(i).vertices[j].z);
-			
-			pointCameraSpace = pointWorldSpace - cameraPosition;
-			
-/* 			cout << "world point " << j+1 << ": "<< pointWorldSpace.x << " "
-				<< pointWorldSpace.y<< " "<< pointWorldSpace.z <<endl; */
-			
-			
-/* 			cout << "camera point "<< j+1 << ": "<<pointCameraSpace.x << " " 
-				<< pointCameraSpace.y << " " << pointCameraSpace.z << endl; */
-			
-			// perspective projection
-			float x = pointCameraSpace.x;
-			float y = pointCameraSpace.y;
-			float z = pointCameraSpace.z;
-			
-			float cx = focalLength * (x / z);
-			float cy = focalLength * (y / z);
-			//float cz = focalLength;
-			
-			//cout << x << " " << y << " " << z << " " << cx << endl;
-			
-			// calculate window coordinates and scale
-			pointCanvasSpace.x = round(WIDTH/2 - cx * scale); 
-			pointCanvasSpace.y = round(cy * scale + HEIGHT/2);
-			//pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
-			
-			
-			// Draw
-			window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, pixel);
-			
-			//vcounter++;
-			//cout << "vertex " << vcounter << " drawn" << endl;
-			
-			displayVertices[j] = CanvasPoint(pointCanvasSpace.x, pointCanvasSpace.y);
-		}
-		
-		CanvasTriangle triangle = CanvasTriangle(displayVertices[0], displayVertices[1], 
-											   displayVertices[2], colour);
-											   
-		displayTriangles.push_back(triangle);	
-		
-		
-	}
-	//cout << (int)triangles.size();
+        while (getline(file, line)) {
+            // cout << line.c_str() << endl;
+            string *tokens = split(line, delim);
+            // int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
+            // cout << tokens << endl;
+            
+            // newmtl line
+            if (newmtl.compare(tokens[0]) == 0){
+                // cout << "MTL match" << endl;
+                colorName = tokens[1];
+            }
+            // Kd line
+            else if (kd.compare(tokens[0]) == 0){
+                // cout << "KD match" << endl;
+                int r = std::round(stof(tokens[1]) * 255);
+                int g = std::round(stof(tokens[2]) * 255);
+                int b = std::round(stof(tokens[3]) * 255);
+                
+                palette.push_back(Colour(colorName, r, g, b));
+            }
+            
+        }
+        file.close();
+    } else {
+        printf("Loading error!\n");
+        return false;
+    }
+    
+    return true;
 }
 
+void transformVertexCoordinatesToCanvas(){ // a.k.a Rasterisation
+    displayTriangles.clear();
+    // loop through all triangles in the world
+    for(int i=0; i<(int)triangles.size(); i++){
+        /* cout << "firt vertex of every stored triangles in triangles " 
+             << triangles.at(i).vertices[0].x << " "
+             << triangles.at(i).vertices[0].y << " "
+             << triangles.at(i).vertices[0].z << endl; */
+        // cout <<"triangle: "<< i+1 <<endl;
+        
+        Colour colour = triangles.at(i).colour;        
+        CanvasPoint displayVertices[3];
+        
+        // loop through all vertices in the world triangle                                                                
+        for(int j=0; j<3; j++){
+            pointWorldSpace = vec3(triangles.at(i).vertices[j].x,
+                                   triangles.at(i).vertices[j].y,
+                                   triangles.at(i).vertices[j].z);
+            
+            pointCameraSpace = pointWorldSpace - cameraPosition;
+            
+            /* cout << "world point " << j+1 << ": " << pointWorldSpace.x << " "
+                    << pointWorldSpace.y << " " << pointWorldSpace.z << endl; */
+            
+            
+            /* cout << "camera point " << j+1 << ": " <<pointCameraSpace.x << " " 
+                    << pointCameraSpace.y << " " << pointCameraSpace.z << endl; */
+            
+            // perspective projection
+            float x = pointCameraSpace.x;
+            float y = pointCameraSpace.y;
+            float z = pointCameraSpace.z;
+            
+            float cx = focalLength * (x / z);
+            float cy = focalLength * (y / z);
+            // float cz = focalLength;
+            
+            // cout << x << " " << y << " " << z << " " << cx << endl;
+            
+            // calculate window coordinates and scale
+            pointCanvasSpace.x = round(WIDTH/2 - cx * scale); 
+            pointCanvasSpace.y = round(cy * scale + HEIGHT/2);
+            // pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
+
+            /* // Draw vertex to make sure it is in the correct position
+            window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, colour.toPackedInt());
+            vcounter++;
+            cout << "vertex " << vcounter << " drawn" << endl; */
+            
+            displayVertices[j] = CanvasPoint(pointCanvasSpace.x, pointCanvasSpace.y);
+        }
+        
+        CanvasTriangle t = CanvasTriangle(displayVertices[0],
+                                          displayVertices[1], 
+                                          displayVertices[2],
+                                          colour);
+
+        displayTriangles.push_back(t);
+    }
+    // cout << (int)triangles.size();
+}
+
+// We need to be able to detect intersections between rays and triangles
+// Represent a ray using a start point
+//                   and a direction vector
+// Therefore, any position along a ray can be represented as:
+//       position = startPoint + scalar * direction
+
+RayTriangleIntersection getClosestIntersection()
+{
+    RayTriangleIntersection rayTriangleIntersection;
+    
+    /* Sample code given from the practical worksheet:
+    vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
+    vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
+    vec3 SPVector = cameraPosition-triangle.vertices[0];
+    mat3 DEMatrix(-rayDirection, e0, e1);
+    vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; */
+    
+    return rayTriangleIntersection;
+}
+
+void rayTrace()
+{
+    
+}
 
 void update()
 {
-  // Function for performing animation (shifting artifacts or moving the camera)
-  transformVertexCoordinatesToCanvas();
+    // Function for performing animation (shifting artifacts or moving the camera)
+    // RASTERISE:
+    // transformVertexCoordinatesToCanvas();
+    
+    // RAYTRACE:
+    rayTrace();
 }
 
 
 int triangleStrokeCounter = 0;
-int triangleFillCounter = 0;
-void handleEvent(SDL_Event event)
+void strokeNextTriangle()
 {
-  if(event.type == SDL_KEYDOWN) {
-    if(event.key.keysym.sym == SDLK_LEFT) cout << "LEFT" << endl;
-    else if(event.key.keysym.sym == SDLK_RIGHT) cameraPosition.x += 0.2;
-    else if(event.key.keysym.sym == SDLK_UP) {
-		cout << "UP pressed" << endl;
-		if (triangleFillCounter < (int)displayTriangles.size()){
-			drawFilledTriangle(displayTriangles.at(triangleFillCounter));
-			triangleFillCounter++;
-			cout << "filled a triangle " << triangleFillCounter << endl;
-		} else { 
-		cout << "no more triangles to fill" << endl;
-		triangleFillCounter = 0;
-		}
-	}
-    else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
-	}
-	else if(event.type == SDL_MOUSEBUTTONDOWN) {
-		cout << "Mouse clicked" << endl;
-		if (triangleStrokeCounter < (int)displayTriangles.size()){
-			drawStrokedTriangle(displayTriangles.at(triangleStrokeCounter));
-			triangleStrokeCounter++;
-			cout << "stroked a triangle " << triangleStrokeCounter << endl;
-		} else { 
-		cout << "no more triangles to stroke" << endl;
-		triangleStrokeCounter = 0;
-		}
-  }
+    if (triangleStrokeCounter < (int)displayTriangles.size()){
+        // if (triangleStrokeCounter == 0) window.clearPixels();
+        drawStrokedTriangle(displayTriangles.at(triangleStrokeCounter));
+        triangleStrokeCounter++;
+        cout << "Stroked triangle #" << triangleStrokeCounter << endl;
+    } else { 
+        cout << "No more triangles to stroke" << endl;
+        triangleStrokeCounter = 0;
+    }
 }
 
-// IMPORTED STUFF ---------------------------------------------------------------------
-/////////////////
-// STRUCTURE
-////////////////
+int triangleFillCounter = 0;
+void fillNextTriangle()
+{
+    if (triangleFillCounter < (int)displayTriangles.size()){
+        // if (triangleFillCounter == 0) window.clearPixels();
+        drawFilledTriangle(displayTriangles.at(triangleFillCounter));
+        triangleFillCounter++;
+        cout << "Filled triangle #" << triangleFillCounter << endl;
+    } else { 
+        cout << "No more triangles to fill" << endl;
+        triangleFillCounter = 0;
+    }
+}
 
+// CONTROLS:
+// → Right arrow key: Shift camera position to the right
+// ↑ Up arrow key: Fill next triangle
+// M1 Mouse click: Stroke next triangle
+
+void handleEvent(SDL_Event event)
+{
+    if(event.type == SDL_KEYDOWN) {
+        if(event.key.keysym.sym == SDLK_LEFT) {
+            cout << "LEFT" << endl;
+        } else if(event.key.keysym.sym == SDLK_RIGHT) {
+            cout << "RIGHT: ";
+            cameraPosition.x += 0.2;
+            cout << "Camera shift to the right." << endl;
+        } else if(event.key.keysym.sym == SDLK_UP) {
+            cout << "UP: ";
+            fillNextTriangle();
+        }  else if(event.key.keysym.sym == SDLK_DOWN) {
+            cout << "DOWN" << endl;
+        }
+    } else if(event.type == SDL_MOUSEBUTTONDOWN) {
+        cout << "Mouse clicked: ";
+        strokeNextTriangle();
+    }
+}
 
 /////////////////
 // FUNCTIONS USED A LOT
@@ -670,47 +660,47 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
     // Sort vertices by vertical position (top to bottom)
     t.sortVertices();
 
-	if (t.vertices[1].y != t.vertices[2].y) { 
+    if (t.vertices[1].y != t.vertices[2].y) { 
 
-		// Divide triangle into 2 "flat-bottomed" triangles
-		float vy = t.vertices[1].y;
-		float vx = getXFromY(vy, t.vertices[0], t.vertices[2]);
-		CanvasPoint v(vx,vy);
-		
-		CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
-		CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
+        // Divide triangle into 2 "flat-bottomed" triangles
+        float vy = t.vertices[1].y;
+        float vx = getXFromY(vy, t.vertices[0], t.vertices[2]);
+        CanvasPoint v(vx,vy);
+        
+        CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
+        CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
 
-		// Fill top triangle (top-to-bottom, left-to-right)
-		for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
-			float x1 = getXFromY(y, topT.vertices[0], topT.vertices[1]);
-			float x2 = getXFromY(y, topT.vertices[0], topT.vertices[2]);
-			float startX = std::min(x1,x2);
-			float endX = std::max(x1,x2);
-			for (int x = startX; x <= endX; x++)
-				window.setPixelColour(x, y, colour.toPackedInt());
-		}
+        // Fill top triangle (top-to-bottom, left-to-right)
+        for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
+            float x1 = getXFromY(y, topT.vertices[0], topT.vertices[1]);
+            float x2 = getXFromY(y, topT.vertices[0], topT.vertices[2]);
+            float startX = std::min(x1,x2);
+            float endX = std::max(x1,x2);
+            for (int x = startX; x <= endX; x++)
+                window.setPixelColour(x, y, colour.toPackedInt());
+        }
 
-		// Fill bottom triangle (top-to-bottom, left-to-right)
-		for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
-			float x1 = getXFromY(y, bottomT.vertices[0], bottomT.vertices[2]);
-			float x2 = getXFromY(y, bottomT.vertices[1], bottomT.vertices[2]);
-			float startX = std::min(x1,x2);
-			float endX = std::max(x1,x2);
-			for (int x = startX; x <= endX; x++)
-				window.setPixelColour(x, y, colour.toPackedInt());
-		}
-	
-	} 
-	else {
-		for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
-			float x1 = getXFromY(y, t.vertices[0], t.vertices[1]);
-			float x2 = getXFromY(y, t.vertices[0], t.vertices[2]);
-			float startX = std::min(x1,x2);
-			float endX = std::max(x1,x2);
-			for (int x = startX; x <= endX; x++)
-				window.setPixelColour(x, y, colour.toPackedInt());
-		}
-	}
+        // Fill bottom triangle (top-to-bottom, left-to-right)
+        for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
+            float x1 = getXFromY(y, bottomT.vertices[0], bottomT.vertices[2]);
+            float x2 = getXFromY(y, bottomT.vertices[1], bottomT.vertices[2]);
+            float startX = std::min(x1,x2);
+            float endX = std::max(x1,x2);
+            for (int x = startX; x <= endX; x++)
+                window.setPixelColour(x, y, colour.toPackedInt());
+        }
+    
+    } 
+    else {
+        for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
+            float x1 = getXFromY(y, t.vertices[0], t.vertices[1]);
+            float x2 = getXFromY(y, t.vertices[0], t.vertices[2]);
+            float startX = std::min(x1,x2);
+            float endX = std::max(x1,x2);
+            for (int x = startX; x <= endX; x++)
+                window.setPixelColour(x, y, colour.toPackedInt());
+        }
+    }
 
     // Test the fill is accurate by drawing the original triangle
     drawStrokedTriangle(t, t.colour);
@@ -804,8 +794,8 @@ void drawImage()
     drawPixelMap(img);
 }
 
-// 2D task 5
-/* void textureMappingTask()
+/* // 2D task 5
+void textureMappingTask()
 {
     PixelMap img = loadPixelMap("texture.ppm");
     CanvasTriangle t(CanvasPoint(160, 10,TexturePoint(195,  5)),

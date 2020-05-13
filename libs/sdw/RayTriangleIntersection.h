@@ -22,6 +22,6 @@ class RayTriangleIntersection
 
 std::ostream& operator<<(std::ostream& os, const RayTriangleIntersection& intersection)
 {
-    os << "Intersection is at " << intersection.intersectionPoint << " on triangle " << intersection.intersectedTriangle << " at a distance of " << intersection.distanceFromCamera << std::endl;
+    os << "Intersection is at (" << intersection.intersectionPoint.x << "," << intersection.intersectionPoint.y << "," << intersection.intersectionPoint.z << ") on triangle " << intersection.intersectedTriangle << " at a distance of " << intersection.distanceFromCamera << std::endl;
     return os;
 }
