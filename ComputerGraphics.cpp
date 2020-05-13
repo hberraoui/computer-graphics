@@ -409,17 +409,20 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         float v = possibleSolution.z;
         // cout << "u,v co-ordinates: (" << u << "," << v << ")" << endl;
 
-        // From here, we will need to transpose these (u,v) co-ordinates into model space
-        // And then, like in rasterisation, from model space to image space
-        float intersectionX = u; // TODO: Calculate
-        float intersectionY = v; // TODO: Calculate
-        float intersectionZ = 0; // TODO: Calculate
-        vec3 intersectionPoint = vec3(intersectionX, intersectionY, intersectionZ);
-        
-        // If this intersection point is closer to the camera than the previous closest intersection
-        if (closestIntersection.distanceFromCamera > distanceFromCamera) {
-            // Then the new intersection we have found is the new closest intersection
-            closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+        // Before continuing, we must check the constraints on u,v are met:
+        if (0.0f <= u && u <= 1.0f && 0.0f <= v && v <= 1.0f && (u + v) <= 1.0f) {
+            // From here, we will need to transpose these (u,v) co-ordinates into model space
+            // And then, like in rasterisation, from model space to image space
+            float intersectionX = u; // TODO: Calculate
+            float intersectionY = v; // TODO: Calculate
+            float intersectionZ = 0; // TODO: Calculate
+            vec3 intersectionPoint = vec3(intersectionX, intersectionY, intersectionZ);
+            
+            // If this intersection point is closer to the camera than the previous closest intersection
+            if (closestIntersection.distanceFromCamera > distanceFromCamera) {
+                // Then the new intersection we have found is the new closest intersection
+                closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+            }
         }
     }
     
