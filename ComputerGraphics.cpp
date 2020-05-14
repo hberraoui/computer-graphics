@@ -81,16 +81,9 @@ vector<CanvasTriangle> displayTriangles;
 // CORNELL BOX
 float focalLength;
 vec3 cameraPosition;
-float cameraSpeed = 2;
-float turnSpeed = 2;
-
-
-// Camera orientation matrix:
-//     Right  Up   Forward
-// x [ ?      ?    ?       ]
-// y [ ?      ?    ?       ]
-// z [ ?      ?    ?       ]
 mat3 cameraOrientation;
+float cameraSpeed = 2;
+float turnSpeedAngle = 45; // degrees
 
 enum renderModes {
     WIREFRAME,
@@ -172,6 +165,13 @@ void centerCameraPosition()
     int cameraStepBack = 2;
     focalLength = 480;
     cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
+    
+    // Camera orientation matrix:
+    //     Right  Up   Forward
+    // x [ 1      0    0       ]
+    // y [ 0      1    0       ]
+    // z [ 0      0    1       ]
+    // cameraOrientation = mat3(vec3(1,1,1),vec3(1,1,1),vec3(1,1,1));
     cameraOrientation = mat3(vec3(1,0,0),vec3(0,1,0),vec3(0,0,1));
 }
 
@@ -235,8 +235,8 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         
         // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
         float xPos = (x - (window.width  / 2));
-        float yPos = (y - (window.height / 2))*-1;
-        float zPos = -focalLength/2;
+        float yPos = (y - (window.height / 2)) * -1; // the y-axis origin is "upside-down" in co-ordinate space
+        float zPos = (0 - (focalLength   / 2));
         vec3 rayDirection = normalize(vec3(xPos, yPos, zPos) - cameraPosition) * cameraOrientation;
         
         // Combining [3] with [1], we get:
@@ -250,6 +250,7 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         //          ^ "DEMatrix"                 ^ "SPVector"
         vec3 SPVector = cameraPosition - p0;
         mat3 DEMatrix(-rayDirection, e0, e1);
+
         // Rearrange [6] to get:
         // [7]      [ t ]   [ -d.x e0.x e1.x ]^-1  [ s.x - p0.x ]
         //          [ u ] = [ -d.y e0.y e1.y ]  •  [ s.y - p0.y ]
@@ -277,7 +278,6 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
             // If this intersection point is closer to the camera than the previous closest intersection
             if (closestIntersection.distanceFromCamera > distanceFromCamera) {
                 if (intersectionPoint.z > cameraPosition.z && intersectionPoint.x < window.width && intersectionPoint.y < window.height){
-                    //cout << glm::to_string(intersectionPoint);
                     // Then the new intersection we have found is the new closest intersection
                     closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
                 }
@@ -299,6 +299,7 @@ void rasteriseCanvas()
     drawModelTriangles(true);
 }
 
+vec3 lightBulb(-0.884011, 5.218497, -0.567968);
 void raytraceCanvas()
 {
     // Iterate over every pixel in the canvas
@@ -310,6 +311,12 @@ void raytraceCanvas()
             Colour colour = BLACK;
             if (closest.distanceFromCamera != INFINITY) {
                 colour = closest.intersectedTriangle.colour;
+                float r = distance(lightBulb, closest.intersectionPoint);
+                //cout << "r: " << r << endl;
+                float brightness = 4 / r;
+                colour.red = round(colour.red * brightness);
+                colour.green = round(colour.green * brightness);
+                colour.blue = round(colour.blue * brightness);
             }
             
             drawPixel(x, y, colour.toPackedInt());
@@ -409,22 +416,22 @@ void handleEvent(SDL_Event event)
             cout << "t KEY: Switched to RAYTRACE MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_a) {
             cout << "a KEY: ";
-            panCamera(turnSpeed);
+            panCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_d) {
             cout << "d KEY: ";
-            panCamera(-turnSpeed);
+            panCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_w) {
             cout << "w KEY: ";
-            tiltCamera(turnSpeed);
+            tiltCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_s) {
             cout << "s KEY: ";
-            tiltCamera(-turnSpeed);
+            tiltCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_q) {
             cout << "q KEY: ";
-            spinCamera(turnSpeed);
+            spinCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_e) {
             cout << "e KEY: ";
-            spinCamera(-turnSpeed);
+            spinCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_c) {
             centerCameraPosition();
             redrawCanvas();
