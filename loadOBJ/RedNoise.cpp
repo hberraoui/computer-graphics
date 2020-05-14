@@ -48,8 +48,8 @@ vector<ModelTriangle> displayModelTriangles;
 vector<CanvasTriangle> displayTriangles;
 
 // LOGO
-// float cameraStepBack = 200;
-// int scale = 1;
+//float cameraStepBack = 200;
+//int scale = 1;
 
 // CORNELL BOX
 float cameraStepBack = 10;
@@ -68,6 +68,7 @@ float centerOfWorld;
 vec3 cameraPosition;
 
 float depthBuffer[WIDTH][HEIGHT];
+Colour bufferColours[WIDTH][HEIGHT];
 
 
 
@@ -102,6 +103,7 @@ vec3 packedIntToVec3(uint32_t colour);
 void rainbowInterpolation();
 void greyscaleInterpolation();
 void drawRedNoise();
+void displayBufferColours();
 
 // --------------------------------------------------------------------------
 
@@ -349,7 +351,8 @@ void transformVertexCoordinatesToCanvas(){
 	
 	for (int i=0; i<WIDTH; i++){
 		for (int j=0; j<HEIGHT; j++){
-			depthBuffer[i][j] = -numeric_limits<float>::infinity();
+			depthBuffer[i][j] = numeric_limits<float>::infinity();
+			bufferColours[i][j] = BLACK;
 			//cout << depthBuffer[i][j] << " /";
 		}
 		//cout << endl;
@@ -405,7 +408,7 @@ void transformVertexCoordinatesToCanvas(){
 			
 			int dbx = pointCanvasSpace.x;
 			int dby = pointCanvasSpace.y;
-			float dbz = 1 / pointWorldSpace.z; // 1/Zworld
+			float dbz = pointWorldSpace.z; // 1/Zworld
 			
 			cout << "window point "<< j+1 << ": "<<pointCanvasSpace.x << " " 
 				<< pointCanvasSpace.y << " " << z << endl;
@@ -414,11 +417,12 @@ void transformVertexCoordinatesToCanvas(){
 			// only draw if z is less than the previous one in buffer and update buffer 
 			// cout << "db; " << depthBuffer[dbx][dby] << endl;
 			
-			if (dbz > depthBuffer[dbx][dby]){
+			if (dbz < depthBuffer[dbx][dby]){
 			// Draw
 				window.setPixelColour(pointCanvasSpace.x, pointCanvasSpace.y, pixel);
-				depthBuffer[dbx][dby] = z;
+				depthBuffer[dbx][dby] = 1 / dbz;
 				cout << "db; " << depthBuffer[dbx][dby] << endl;
+				bufferColours[dbx][dby] = colour;
 			}
 			
 			//vcounter++;
@@ -447,6 +451,7 @@ void update()
 {
   // Function for performing animation (shifting artifacts or moving the camera)
   //transformVertexCoordinatesToCanvas();
+  displayBufferColours();
 }
 
 
@@ -661,20 +666,41 @@ int counterdraw = 1;
 // 2D task 1
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, float zStart, float zEnd)
 {
-    int steps = calcSteps(from,to);
+
+	
+	int steps = calcSteps(from,to);
+	//cout << "steps = "<< steps << endl;
+	
     std::vector<CanvasPoint> points = interpolate(from, to, steps);
 	std::vector<float> zValues = interpolate(zStart, zEnd, steps);
 	
 	//update depth buffer on the line
-	for (int i = 0; i < steps; i++) {
-		int x = std::floor(points.at(i).x);
-		int y = std::floor(points.at(i).y);
-		if (zValues.at(i) > depthBuffer[x][y]){
-			depthBuffer[x][y] = zValues.at(i);
-			window.setPixelColour(std::floor(points.at(i).x), std::floor(points.at(i).y), colour.toPackedInt());
+	for (int i = 0; i <= steps; i++) {
+		
+		//cout << "step " << i+1 << endl;
+		
+		int x = points.at(i).x;
+		int y = points.at(i).y;
+		 if (1 / zValues.at(i) <= depthBuffer[x][y]){
+			depthBuffer[x][y] = 1 / zValues.at(i);
+			
+			//cout << "stored z " << depthBuffer[x][y] << endl;
+			
+			bufferColours[x][y] = colour;
+			
+			//window.setPixelColour(x, y, colour.toPackedInt());
+		} 
+		//window.setPixelColour(std::floor(points.at(i).x), std::floor(points.at(i).y), colour.toPackedInt());
+	}
+}
+	
+	
+void displayBufferColours (){
+	for (int i=0; i<WIDTH; i++){
+		for (int j=0; j<HEIGHT; j++){
+			window.setPixelColour(i, j, bufferColours[i][j].toPackedInt());
 		}
 	}
-	
 }
 
 void drawLine(TexturePoint from, TexturePoint to, Colour colour)
@@ -724,32 +750,38 @@ void drawRandomFilledTriangle()
                      Colour(rand() % 255, rand() % 255, rand() % 255));
     //drawFilledTriangle(t);
 }
-void drawFilledTriangle(ModelTriangle mt, Colour colour)
+
+void drawFilledTriangle(ModelTriangle t, Colour c)
 {
 	
+	t.sortVertices();
+	cout << "sorted vertices" << endl;
+	
 	// create canvas triangle from model triangle
-	CanvasPoint cp0 = CanvasPoint(mt.vertices[0].x, mt.vertices[0].y);
-	CanvasPoint cp1 = CanvasPoint(mt.vertices[1].x, mt.vertices[1].y);
-	CanvasPoint cp2 = CanvasPoint(mt.vertices[2].x, mt.vertices[2].y);
-	Colour c = mt.colour;
+	CanvasPoint cp0 = CanvasPoint(t.vertices[0].x, t.vertices[0].y);
+	CanvasPoint cp1 = CanvasPoint(t.vertices[1].x, t.vertices[1].y);
+	CanvasPoint cp2 = CanvasPoint(t.vertices[2].x, t.vertices[2].y);
+	//Colour c = mt.colour;
 	
-	CanvasTriangle t = CanvasTriangle(cp0, cp1, cp2, c);
+	CanvasTriangle ct = CanvasTriangle(cp0, cp1, cp2, c);
     // Sort vertices by vertical position (top to bottom)
-    t.sortVertices();
 	
-	float z0 = mt.vertices[0].z;
-	float z1 = mt.vertices[1].z;
-	float z2 = mt.vertices[2].z;
+	float z0 = t.vertices[0].z;
+	float z1 = t.vertices[1].z;
+	float z2 = t.vertices[2].z;
+	
 
-	if (t.vertices[1].y != t.vertices[2].y) { 
+
+	if (ct.vertices[1].y != ct.vertices[2].y) { 
 
 		// Divide triangle into 2 "flat-bottomed" triangles
-		float vy = t.vertices[1].y;
-		float vx = getXFromY(vy, t.vertices[0], t.vertices[2]);
+		float vy = ct.vertices[1].y;
+		float vx = getXFromY(vy, ct.vertices[0], ct.vertices[2]);
 		CanvasPoint v(vx,vy);
 		
-		CanvasTriangle topT = CanvasTriangle(t.vertices[0], t.vertices[1], v);
-		CanvasTriangle bottomT = CanvasTriangle(t.vertices[1], v, t.vertices[2]);
+	
+		CanvasTriangle topT = CanvasTriangle(ct.vertices[0], ct.vertices[1], v);
+		CanvasTriangle bottomT = CanvasTriangle(ct.vertices[1], v, ct.vertices[2]);
 
 		// Fill top triangle (top-to-bottom, left-to-right)
 		for (int y = topT.vertices[0].y; y < topT.vertices[2].y; ++y) {
@@ -757,13 +789,21 @@ void drawFilledTriangle(ModelTriangle mt, Colour colour)
 			float x2 = getXFromY(y, topT.vertices[0], topT.vertices[2]);
 			float startX = std::min(x1,x2);
 			float endX = std::max(x1,x2);
+			startX = floor(startX);
+			endX = floor(endX);
 			
+			//float vy = t.vertices[1].y;
 			CanvasPoint from = CanvasPoint(startX, y);
 			CanvasPoint to = CanvasPoint(endX, y);
+			
+			for (int x = startX; x <= endX; x++){
+				drawLine(from, to, c, z0, z1);
+			}
+				//window.setPixelColour(x, y, colour.toPackedInt());
 			// we have colour
 			
 			//void drawLine(CanvasPoint from, CanvasPoint to, Colour colour, float zStart, float zEnd)
-			drawLine(from, to, c, z0, z1);
+			//drawLine(from, to, c, z0, z1);
 			
 			
 /* 			for (int x = startX; x <= endX; x++)
@@ -779,11 +819,19 @@ void drawFilledTriangle(ModelTriangle mt, Colour colour)
 			float x2 = getXFromY(y, bottomT.vertices[1], bottomT.vertices[2]);
 			float startX = std::min(x1,x2);
 			float endX = std::max(x1,x2);
+			startX = floor(startX);
+			endX = floor(endX);
 			
+			//float vy = t.vertices[1].y;
 			CanvasPoint from = CanvasPoint(startX, y);
 			CanvasPoint to = CanvasPoint(endX, y);
 			
-			drawLine(from, to, c, z1, z2);
+			for (int x = startX; x <= endX; x++){
+				drawLine(from, to, c, z0, z2);
+			}
+				//window.setPixelColour(x, y, colour.toPackedInt());
+			
+			//drawLine(from, to, c, z1, z2);
 			
 /* 			for (int x = startX; x <= endX; x++){
 				//if (mt.x == x && mt.y == y && mt.z == depthBuffer[x][y]){
@@ -794,26 +842,42 @@ void drawFilledTriangle(ModelTriangle mt, Colour colour)
 	
 	} 
 	else {
-		for (int y = t.vertices[0].y; y < t.vertices[2].y; ++y) {
-			float x1 = getXFromY(y, t.vertices[0], t.vertices[1]);
-			float x2 = getXFromY(y, t.vertices[0], t.vertices[2]);
+		for (int y = ct.vertices[0].y; y < ct.vertices[2].y; ++y) {
+			float x1 = getXFromY(y, ct.vertices[0], ct.vertices[1]);
+			float x2 = getXFromY(y, ct.vertices[0], ct.vertices[2]);
 			float startX = std::min(x1,x2);
 			float endX = std::max(x1,x2);
+			startX = floor(startX);
+			endX = floor(endX);
 			
+			//float vy = t.vertices[1].y;
 			CanvasPoint from = CanvasPoint(startX, y);
 			CanvasPoint to = CanvasPoint(endX, y);
 			
-			drawLine(from, to, c, z0, z1);
+			for (int x = startX; x <= endX; x++){
+				//drawLine(from, to, c, z0, z2);
+				drawLine(from, to, c, z1, z2);
+				//drawLine(from, to, c, z0, z1);
+				//drawLine(from, to, c, z0, z2);
+				//window.setPixelColour(x, y, colour.toPackedInt());
+			
+			//cout << " THIS TRIANGLE BUGS " << endl;
+			//break;
+			
+			//drawLine(from, to, c, z1, z2);
+			//drawLine(from, to, c, z0, z1);
+			//drawLine(from, to, c, z0, z2);
 			
 /* 			for (int x = startX; x <= endX; x++)
 				//if (mt.x == x && mt.y == y && mt.z == depthBuffer[x][y]){
 					window.setPixelColour(x, y, colour.toPackedInt());
 				//} */
+			}
 		}
 	}
 
     // Test the fill is accurate by drawing the original triangle
-    drawStrokedTriangle(mt, mt.colour);
+    drawStrokedTriangle(t, t.colour);
 }
 
 void drawFilledTriangle(ModelTriangle t)

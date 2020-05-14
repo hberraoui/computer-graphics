@@ -30,6 +30,7 @@ class CanvasTriangle
     void sortVertices()
     {
       int n = sizeof(vertices) / sizeof(vertices[0]);
+	  //std::cout << "sizeof(vertices )" << sizeof(vertices) << " sizeof(vertices[0] " << sizeof(vertices[0]) << std::endl;
       bool swapped;
       for (int i = 0; i < n - 1; i++) {
         for (int j = 0; j < n - i - 1; j++) {

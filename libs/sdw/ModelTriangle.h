@@ -19,6 +19,23 @@ class ModelTriangle
       vertices[2] = v2;
       colour = trigColour;
     }
+	
+	void sortVerticesMT()
+    {
+      int n = sizeof(vertices) / sizeof(vertices[0]);
+      bool swapped;
+      for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+          swapped = false;
+          if (vertices[j].y > vertices[j+1].y) {
+            std::swap(vertices[j],vertices[j+1]);
+            swapped = true;
+          }
+        }
+        if (swapped == false)
+          break;
+      }
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const ModelTriangle& triangle)
