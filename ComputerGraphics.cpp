@@ -89,6 +89,11 @@ mat3 cameraOrientation;
 float cameraSpeed = 2;
 float turnSpeedAngle = 45; // degrees
 
+// Position our proximity light source at the centre of the ceiling light vertices
+vec3 lightBulb((-0.884011 +  0.415989) / 2,
+               ( 5.219334 +  5.218497) / 2,
+               (-2.517968 + -3.567968) / 2);
+
 enum renderModes {
     WIREFRAME,
     RASTER,
@@ -111,6 +116,10 @@ void redrawCanvas()
             raytraceCanvas();
             break;
     }
+    
+    cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
+    cout << "[CAM POS] " << to_string(cameraPosition) << endl;
+    cout << "[CAM ORIENTATION] " << to_string(cameraOrientation) << endl;
 }
 
 // For the sake of Windows
@@ -312,7 +321,7 @@ void rasteriseCanvas()
     drawModelTriangles(true);
 }
 
-int brighten(int v, float brightness)
+int applyShading(int v, float brightness)
 {
     int x = (int) round(v * brightness);
     if (x > 255) return 255;
@@ -320,40 +329,42 @@ int brighten(int v, float brightness)
     return x;
 }
 
+Colour getColourFromIntersection(RayTriangleIntersection intersection)
+{
+    Colour colour = BLACK;
+    if (intersection.distanceFromCamera != INFINITY) {
+        float distanceFromLight = distance(lightBulb, intersection.intersectionPoint);
+        float intensity = 100;
+        float brightness = intensity / (float)(4 * (float)pi<float>() * distanceFromLight * distanceFromLight);
+        
+        // Ambient lighting
+        float lighting_floor = 0.5;
+        if (brightness < lighting_floor) brightness = lighting_floor;
+        
+        // Apply the brightness
+        colour = intersection.intersectedTriangle.colour;
+        colour.red = applyShading(colour.red, brightness);
+        colour.green = applyShading(colour.green, brightness);
+        colour.blue = applyShading(colour.blue, brightness);
+        
+        // cout << "point->light dist: " << distanceFromLight << endl;
+        // cout << "brightness       : " << brightness << endl;
+        // cout << "colour           : " << colour << endl;
+    }
+    return colour;
+}
+
 void raytraceCanvas()
 {
-    vec3 lightBulb;
-    lightBulb.x = (-0.884011 + 0.415989) / 2;
-    lightBulb.y = (5.219334 + 5.218497) / 2;
-    lightBulb.z = (-2.517968 +-3.567968) / 2;
-    
-    cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
-    
     // Iterate over every pixel in the canvas
     for (int y = 0; y < window.height; y++) {
         for (int x = 0; x < window.width; x++) {
             // Shoot a ray from the camera such that it intersects this pixel of the canvas
             RayTriangleIntersection closest = getClosestIntersection(x, y);
-
-            Colour colour = BLACK;
-            if (closest.distanceFromCamera != INFINITY) {
-                colour = closest.intersectedTriangle.colour;
-                float r = distance(lightBulb, closest.intersectionPoint);
-                float intensity = 100;
-                float brightness = intensity / (float)(4 * (float)pi<float>() * r * r);
-                colour.red = brighten(colour.red, brightness);
-                colour.green = brighten(colour.green, brightness);
-                colour.blue = brighten(colour.blue, brightness);
-                // cout << "point->light dist: " << r << endl;
-                // cout << "brightness       : " << brightness << endl;
-                // cout << "colour           : " << colour << endl;
-            }
-            
+            Colour colour = getColourFromIntersection(closest);            
             drawPixel(x, y, colour.toPackedInt());
         }
     }
-    cout << "[CAM POS] " << to_string(cameraPosition) << endl;
-    cout << "[CAM ORIENTATION] " << to_string(cameraOrientation);
 }
 
 void update()
@@ -1019,8 +1030,7 @@ bool loadObjFile(string filepath)
         string line;
 		char delim = ' ';
         while (getline(file, line)) {
-			
-            cout << line << endl;
+            // cout << line << endl;
 			
             string *tokens = split(line, delim);
             /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
@@ -1070,7 +1080,7 @@ bool loadObjFile(string filepath)
                     
                     if (faceValues[1].compare("") != 0) {
                         int textureIndex = (stoi(faceValues[1])) - 1; // question mark
-                        cout << "tex num " << textureIndex << endl;
+                        // cout << "tex num " << textureIndex << endl;
                         vertexTextureIndexes.push_back({vertexIndex, textureIndex});
                         
                     }
@@ -1116,11 +1126,11 @@ bool loadObjFile(string filepath)
             
         }
         
-        cout << "I am finished with obj" << endl; 
+        //cout << "I am finished with obj" << endl; 
         
         file.close();
     } else {
-        printf("Loading error!\n");
+        cout << "Loading error!" << endl;
         return false;
     }
     
@@ -1165,11 +1175,11 @@ bool loadMtlFile(string filepath){
             }
         }
         
-        cout << "I am finished with mtl" << endl; 
+        //cout << "I am finished with mtl" << endl; 
         
         file.close();
     } else {
-        printf("Loading error!\n");
+        cout << "Loading error!" << endl;
         return false;
     }
     return true;
