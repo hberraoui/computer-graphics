@@ -3,6 +3,7 @@
 #include <DrawingWindow.h>
 #include <Utils.h>
 #include <glm/glm.hpp>
+#include <glm/ext.hpp>
 #include <PixelMap.h>
 #include <fstream>
 #include <vector>
@@ -19,6 +20,7 @@ bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
 void centerCameraPosition();
 RayTriangleIntersection getClosestIntersection(int x, int y);
+void drawModelTriangles(bool filled);
 void renderWireframeCanvas();
 void rasteriseCanvas();
 void raytraceCanvas();
@@ -66,6 +68,8 @@ string hackspaceLogoObjPath = "./hackspace-logo/logo.obj";
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 vector<Colour> palette;
+vector<vec3> textureVertices;
+vector<vec2> vertexTextureIndexes;
 vector<vec3> vertices;
 vector<ModelTriangle> triangles;
 vector<CanvasTriangle> displayTriangles;
@@ -75,16 +79,18 @@ vector<CanvasTriangle> displayTriangles;
 // int scale = 1;
 
 // CORNELL BOX
-float cameraStepBack = 40;
-int scale = 120;
-
 float focalLength;
-vec3 pointCameraSpace;
-vec3 pointCanvasSpace;
-vec3 pointWorldSpace;
-float centerOfWorld;
-//int vcounter = 0;
 vec3 cameraPosition;
+float cameraSpeed = 2;
+float turnSpeed = 2;
+
+
+// Camera orientation matrix:
+//     Right  Up   Forward
+// x [ ?      ?    ?       ]
+// y [ ?      ?    ?       ]
+// z [ ?      ?    ?       ]
+mat3 cameraOrientation;
 
 enum renderModes {
     WIREFRAME,
@@ -92,7 +98,7 @@ enum renderModes {
     RAYTRACE
 };
 
-int renderMode = RAYTRACE;
+int renderMode;
 
 void redrawCanvas()
 {
@@ -125,7 +131,8 @@ int main(int argc, char* argv[])
     //loadObjFile(hackspaceLogoObjPath);
 
     centerCameraPosition();
-    renderMode = WIREFRAME;
+    renderMode = RAYTRACE;
+    cout << "Starting in RAYTRACE mode." << endl;
     redrawCanvas();
     
     SDL_Event event;
@@ -140,7 +147,6 @@ int main(int argc, char* argv[])
     }
 }
 
-
 void centerCameraPosition()
 {
     float minX = triangles.at(0).vertices[0].x;
@@ -149,15 +155,12 @@ void centerCameraPosition()
     float maxY = triangles.at(0).vertices[0].y;
     float minZ = triangles.at(0).vertices[0].z;
     float maxZ = triangles.at(0).vertices[0].z;
-    float wx;
-    float wy;
-    float wz;
-
-    for(int i=0; i<(int)triangles.size(); i++){
-        for(int j=0; j<3; j++){
-            wx = triangles.at(i).vertices[j].x;
-            wy = triangles.at(i).vertices[j].y;
-            wz = triangles.at(i).vertices[j].z;
+    
+    for(ModelTriangle triangle : triangles){
+        for (int i = 0; i < 3; i++){
+            float wx = triangle.vertices[i].x;
+            float wy = triangle.vertices[i].y;
+            float wz = triangle.vertices[i].z;
             if (wx <= minX) minX = wx;
             if (wx >= maxX) maxX = wx;
             if (wy <= minY) minY = wy;
@@ -166,223 +169,46 @@ void centerCameraPosition()
             if (wz >= maxZ) maxZ = wz;
         }
     }
-    // cout << maxX << " " << minX << " " << maxY << " " << minY << " " << maxZ << " " << minZ << endl;
- 
-    centerOfWorld = (maxZ + minZ)/2;
-    // cout << "z world center " << centerOfWorld << endl;
-    
+    int cameraStepBack = 2;
+    focalLength = 480;
     cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
-    // cout << "camera: " << cameraPosition.x << " "<< cameraPosition.y<< " "<< cameraPosition.z <<endl;
-
-    focalLength = abs((cameraPosition.z - centerOfWorld)/2);
-    // cout << "focal length: " << focalLength << endl;
+    cameraOrientation = mat3(vec3(1,0,0),vec3(0,1,0),vec3(0,0,1));
 }
 
-
-bool loadObjFile(string filepath){
-    ifstream file;
-    file.open(filepath);
-    
-    string o = "o";
-    string usemtl = "usemtl";
-    string v = "v";
-    string f = "f";
-    
-    string objectName;
-    string colorName;
-
-    if (file.is_open()) {
-        string line;
-        char delim = ' ';
-        
-        while (getline(file, line)) {
-            // cout << line.c_str() << endl;
-            string *tokens = split(line, delim);
-            
-            /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-            for (int i=0; i<numberOfTokens; i++){
-                cout << tokens[i] << endl;
-            } */
-            
-            // o line
-            if (o.compare(tokens[0]) == 0){
-                objectName = tokens[1];
-            } 
-            
-            // usemtl line
-            else if (usemtl.compare(tokens[0]) == 0){
-                colorName = tokens[1];
-            }
-            
-            // v line
-            else if (v.compare(tokens[0]) == 0){
-                float v1 = stof(tokens[1]);
-                float v2 = stof(tokens[2]);
-                float v3 = stof(tokens[3]);
-                vec3 vertex = vec3(v1, v2, v3);
-                vertices.push_back(vertex);
-            }
-            
-            // f line
-            else if (f.compare(tokens[0]) == 0) {
-                vec3 faceVertices[3];
-                for (int i = 0; i < 3; i++) {
-                    string *faceValues = split (tokens[i+1], '/');
-                    
-                    // check size of faceValues
-                    // cout << "fv size: " << (int)faceValues->size() << endl;
-                    // cout << "fv1 value: " << faceValues[1] << endl;
-                    
-                    int vertexIndex = (stoi(faceValues[0])) - 1;
-                    
-                    if (faceValues[1].compare("") != 0) {
-                        int textureNumber = (stoi(faceValues[1])) - 1; // question mark
-                        cout << "tex num" << textureNumber << endl;
-                    }
-                    
-                    faceVertices[i] = vertices.at(vertexIndex);
-                    
-                }
-                
-                /* for (int i=0; i<3; i++){
-                    cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
-                } */
-                
-                Colour colour = RED;
-                
-                if ((int)palette.size() > 0){
-                
-                    int paletteIndex=0;
-                    while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
-                        paletteIndex++;
-                    }
-                    
-                    colour = palette.at(paletteIndex);
-                    // cout << colour.name << endl;
-                }
-                
-                
-                ModelTriangle triangle = ModelTriangle(faceVertices[0], faceVertices[1], 
-                                                        faceVertices[2], colour);
-                
-                triangles.push_back(triangle);
-            }
-            
-        }
-        
-        // cout << "I am finished with obj" << endl; 
-        
-        file.close();
-    } else {
-        printf("Loading error!\n");
-        return false;
-    }
-    
-    return true;
-}
-
-bool loadMtlFile(string filepath){
-    ifstream file;
-    file.open(filepath);
-
-    if (file.is_open()) {
-        string line;
-        char delim = ' ';
-        string newmtl = "newmtl";
-        string kd = "Kd";
-        string colorName;
-
-        while (getline(file, line)) {
-            // cout << line.c_str() << endl;
-            string *tokens = split(line, delim);
-            // int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-            // cout << tokens << endl;
-            
-            // newmtl line
-            if (newmtl.compare(tokens[0]) == 0){
-                // cout << "MTL match" << endl;
-                colorName = tokens[1];
-            }
-            // Kd line
-            else if (kd.compare(tokens[0]) == 0){
-                // cout << "KD match" << endl;
-                int r = std::round(stof(tokens[1]) * 255);
-                int g = std::round(stof(tokens[2]) * 255);
-                int b = std::round(stof(tokens[3]) * 255);
-                
-                palette.push_back(Colour(colorName, r, g, b));
-            }
-            
-        }
-        file.close();
-    } else {
-        printf("Loading error!\n");
-        return false;
-    }
-    
-    return true;
-}
-
-void transformVertexCoordinatesToCanvas(){ // a.k.a Rasterisation
-    displayTriangles.clear();
-    // loop through all triangles in the world
-    for(int i=0; i<(int)triangles.size(); i++){
-        /* cout << "firt vertex of every stored triangles in triangles " 
-             << triangles.at(i).vertices[0].x << " "
-             << triangles.at(i).vertices[0].y << " "
-             << triangles.at(i).vertices[0].z << endl; */
-        // cout <<"triangle: "<< i+1 <<endl;
-        
-        Colour colour = triangles.at(i).colour;        
+void drawModelTriangles(bool filled)
+{
+    window.clearPixels();
+    for (ModelTriangle triangle : triangles) {
         CanvasPoint displayVertices[3];
-        
-        // loop through all vertices in the world triangle                                                                
-        for(int j=0; j<3; j++){
-            pointWorldSpace = vec3(triangles.at(i).vertices[j].x,
-                                   triangles.at(i).vertices[j].y,
-                                   triangles.at(i).vertices[j].z);
-            
-            pointCameraSpace = pointWorldSpace - cameraPosition;
-            
-            /* cout << "world point " << j+1 << ": " << pointWorldSpace.x << " "
-                    << pointWorldSpace.y << " " << pointWorldSpace.z << endl; */
-            
-            
-            /* cout << "camera point " << j+1 << ": " <<pointCameraSpace.x << " " 
-                    << pointCameraSpace.y << " " << pointCameraSpace.z << endl; */
+        bool isVisible = true;
+        for (int i = 0; i < 3; i++) {
+            vec3 cameraToVertex = triangle.vertices[i] - cameraPosition;
+            cameraToVertex = cameraToVertex * cameraOrientation;
             
             // perspective projection
-            float x = pointCameraSpace.x;
-            float y = pointCameraSpace.y;
-            float z = pointCameraSpace.z;
-            
-            float cx = focalLength * (x / z);
-            float cy = focalLength * (y / z);
-            // float cz = focalLength;
-            
-            // cout << x << " " << y << " " << z << " " << cx << endl;
-            
-            // calculate window coordinates and scale
-            pointCanvasSpace.x = round(WIDTH/2 - cx * scale); 
-            pointCanvasSpace.y = round(cy * scale + HEIGHT/2);
-            // pointCanvasSpace.z = round(cz * scale + WIDTH/2); 
+            cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
+            cameraToVertex.y = -focalLength * (cameraToVertex.y / cameraToVertex.z);
+            if (cameraToVertex.z > cameraPosition.z && cameraToVertex.x < window.width && cameraToVertex.y < window.height) {
+                isVisible = false;
+            } else {
 
-            /* // Draw vertex to make sure it is in the correct position
-            drawPixel(pointCanvasSpace.x, pointCanvasSpace.y, colour.toPackedInt());
-            vcounter++;
-            cout << "vertex " << vcounter << " drawn" << endl; */
-            
-            displayVertices[j] = CanvasPoint(pointCanvasSpace.x, pointCanvasSpace.y);
+                // calculate window coordinates and scale
+                CanvasPoint c(round((window.width/2) - (cameraToVertex.x)),
+                              round((window.height/2) - (cameraToVertex.y)));
+                
+                displayVertices[i] = c;
+            }
         }
         
-        CanvasTriangle t = CanvasTriangle(displayVertices[0],
-                                          displayVertices[1], 
-                                          displayVertices[2],
-                                          colour);
-
-        displayTriangles.push_back(t);
+        if (isVisible) {
+            CanvasTriangle t(displayVertices[0],
+                             displayVertices[1], 
+                             displayVertices[2],
+                             triangle.colour);
+            if (filled) drawFilledTriangle(t);
+            else drawStrokedTriangle(t);
+        }
     }
-    // cout << (int)triangles.size();
 }
 
 RayTriangleIntersection getClosestIntersection(int x, int y)
@@ -395,20 +221,23 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
     //          r        = s          + t      * d
     
     // Our startPoint is the camera's position, the global variable vec3 cameraPosition
-    // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
-    float xPos = (x - (window.width  / 2));
-    float yPos = (y - (window.height / 2)) * -1;
-    float zPos = (scale * focalLength)     * -1;
-    vec3 rayDirection = normalize(vec3(xPos, yPos, zPos) - cameraPosition);
-    
     // Given a triangular plane with vertices p0, p1, p2
     for (ModelTriangle triangle : triangles) {
         // Point r which intersects this triangular plane is defined as: 
         // [2]      r = p0 + u(p1 - p0) + v(p2 - p0)
         // Simplify [2] by referring to the differences between points as edges
         // [3]      r = p0 + ue0 + ve1
-        vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
-        vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
+        vec3 p0 = triangle.vertices[0];
+        vec3 p1 = triangle.vertices[1];
+        vec3 p2 = triangle.vertices[2];
+        vec3 e0 = p1 - p0;
+        vec3 e1 = p2 - p0;
+        
+        // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
+        float xPos = (x - (window.width  / 2));
+        float yPos = (y - (window.height / 2))*-1;
+        float zPos = -focalLength/2;
+        vec3 rayDirection = normalize(vec3(xPos, yPos, zPos) - cameraPosition) * cameraOrientation;
         
         // Combining [3] with [1], we get:
         // [4]      p0 + ue0 + ve1 = s + t * d
@@ -419,9 +248,8 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         //          [ -d.y e0.y e1.y ] • [ u ] = [ s.y - p0.y ]
         //          [ -d.z e0.z e1.z ]   [ v ]   [ s.z - p0.z ]
         //          ^ "DEMatrix"                 ^ "SPVector"
-        vec3 SPVector = cameraPosition - triangle.vertices[0];
+        vec3 SPVector = cameraPosition - p0;
         mat3 DEMatrix(-rayDirection, e0, e1);
-
         // Rearrange [6] to get:
         // [7]      [ t ]   [ -d.x e0.x e1.x ]^-1  [ s.x - p0.x ]
         //          [ u ] = [ -d.y e0.y e1.y ]  •  [ s.y - p0.y ]
@@ -444,19 +272,31 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
             float ndcY = (v + 0.5) / window.height;
             float canvasX = 2 * (ndcX) - 1;
             float canvasY = 1 - 2 * (ndcY);
-            
             vec3 intersectionPoint = vec3(canvasX, canvasY, (cameraPosition.z + distanceFromCamera));
 
             // If this intersection point is closer to the camera than the previous closest intersection
             if (closestIntersection.distanceFromCamera > distanceFromCamera) {
-                // Then the new intersection we have found is the new closest intersection
-                closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+                if (intersectionPoint.z > cameraPosition.z && intersectionPoint.x < window.width && intersectionPoint.y < window.height){
+                    //cout << glm::to_string(intersectionPoint);
+                    // Then the new intersection we have found is the new closest intersection
+                    closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+                }
             }
         }
     }
     
     // After iterating over every triangle, we will now have found the intersection closest to the camera
     return closestIntersection;
+}
+
+void renderWireframeCanvas()
+{
+    drawModelTriangles(false);
+}
+
+void rasteriseCanvas()
+{
+    drawModelTriangles(true);
 }
 
 void raytraceCanvas()
@@ -475,54 +315,69 @@ void raytraceCanvas()
             drawPixel(x, y, colour.toPackedInt());
         }
     }
-}
-
-void renderWireframeCanvas()
-{
-    window.clearPixels();
-    transformVertexCoordinatesToCanvas();
-    for (CanvasTriangle triangle : displayTriangles) {
-        drawStrokedTriangle(triangle);
-    }
-}
-
-void rasteriseCanvas()
-{
-    window.clearPixels();
-    transformVertexCoordinatesToCanvas();
-    for (CanvasTriangle triangle : displayTriangles) {
-        drawFilledTriangle(triangle);
-    }
+    cout << "[CAMERA POSITION] " << to_string(cameraPosition) << endl;
+    cout << "[CAMERA ORIENTATION] " << to_string(cameraOrientation) << endl;
 }
 
 void update()
 {
     // Function for performing animation (shifting artifacts or moving the camera)
-    // WIREFRAME:
-    // renderWireframeCanvas();
-    
-    // RASTERISE:
-    // rasteriseCanvas();
-    
-    // RAYTRACE:
-    // raytraceCanvas();
 }
-
-// CONTROLS:
-// ← Left arrow key: Shift camera position to the left
-// → Right arrow key: Shift camera position to the right
-// w Key: change to wireframe mode
-// r Key: change to raster mode
-// t Key: change to raytrace mode
-// c Key: clear the window
-
-float cameraSpeed = 0.2;
 
 void changeRenderMode(int mode)
 {
     renderMode = mode;
     redrawCanvas();
 }
+
+void tiltCamera(float angleDegrees)
+{
+    float rotationAngle = glm::radians(angleDegrees);
+    float cosA = cos(rotationAngle);
+    float sinA = sin(rotationAngle);
+    mat3 rotateXAxis(vec3(1,0,0),vec3(0,cosA,-sinA),vec3(0,sinA,cosA));
+    
+    cameraOrientation = cameraOrientation * rotateXAxis;
+    redrawCanvas();
+    cout << "Tilting camera " << angleDegrees << " degrees." << endl;
+}
+
+void panCamera(float angleDegrees)
+{
+    float rotationAngle = glm::radians(angleDegrees);
+    float cosA = cos(rotationAngle);
+    float sinA = sin(rotationAngle);
+    mat3 rotateYAxis(vec3(cosA,0,sinA),vec3(0,1,0),vec3(-sinA,0,cosA));
+    
+    cameraOrientation = cameraOrientation * rotateYAxis;
+    redrawCanvas();
+    cout << "Panning camera " << angleDegrees << " degrees." << endl;
+}
+
+void spinCamera(float angleDegrees)
+{
+    float rotationAngle = glm::radians(angleDegrees);
+    float cosA = cos(rotationAngle);
+    float sinA = sin(rotationAngle);
+    mat3 rotateZAxis(vec3(cosA,-sinA,0),vec3(sinA,cosA,0),vec3(0,0,1));
+    
+    cameraOrientation = cameraOrientation * rotateZAxis;
+    redrawCanvas();
+    cout << "Spinning camera " << angleDegrees << " degrees." << endl;
+}
+
+// CONTROLS:
+// ← Left arrow key: Shift camera position to the left
+// → Right arrow key: Shift camera position to the right
+// MOUSE SCROLL UP: Shift camera position inwards
+// MOUSE SCROLL DOWN: Shift camera position outwards
+// f Key: change to wireframe mode
+// r Key: change to raster mode
+// t Key: change to raytrace mode
+// a/d Keys: pan the camera
+// w/s Keys: tilt the camera
+// q/e Keys: spin the camera
+// c Key: reset the camera
 
 void handleEvent(SDL_Event event)
 {
@@ -543,21 +398,53 @@ void handleEvent(SDL_Event event)
             cameraPosition.y += cameraSpeed;
             redrawCanvas();
             cout << "DOWN: Camera shifted down." << endl;
-        } else if(event.key.keysym.sym == SDLK_w) {
+        } else if(event.key.keysym.sym == SDLK_f) {
             changeRenderMode(WIREFRAME);
-            cout << "w KEY: Switched to WIREFRAME MODE." << endl;
+            cout << "f KEY: Switched to WIREFRAME MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_r) {
             changeRenderMode(RASTER);
             cout << "r KEY: Switched to RASTER MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_t) {
             changeRenderMode(RAYTRACE);
-            cout << "r KEY: Switched to RAYTRACE MODE." << endl;
+            cout << "t KEY: Switched to RAYTRACE MODE." << endl;
+        } else if(event.key.keysym.sym == SDLK_a) {
+            cout << "a KEY: ";
+            panCamera(turnSpeed);
+        } else if(event.key.keysym.sym == SDLK_d) {
+            cout << "d KEY: ";
+            panCamera(-turnSpeed);
+        } else if(event.key.keysym.sym == SDLK_w) {
+            cout << "w KEY: ";
+            tiltCamera(turnSpeed);
+        } else if(event.key.keysym.sym == SDLK_s) {
+            cout << "s KEY: ";
+            tiltCamera(-turnSpeed);
+        } else if(event.key.keysym.sym == SDLK_q) {
+            cout << "q KEY: ";
+            spinCamera(turnSpeed);
+        } else if(event.key.keysym.sym == SDLK_e) {
+            cout << "e KEY: ";
+            spinCamera(-turnSpeed);
         } else if(event.key.keysym.sym == SDLK_c) {
-            window.clearPixels();
-            cout << "c KEY: Window cleared." << endl;
+            centerCameraPosition();
+            redrawCanvas();
+            cout << "c KEY: Camera reset." << endl;
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
         cout << "MOUSE CLICKED" << endl;
+    } else if(event.type == SDL_MOUSEWHEEL) {
+        if(event.wheel.y > 0) // scroll up
+        {
+            cameraPosition.z -= cameraSpeed;
+            redrawCanvas();
+            cout << "SCROLL UP: Camera shifted inwards." << endl;
+        }
+        else if(event.wheel.y < 0) // scroll down
+        {
+            cameraPosition.z += cameraSpeed;
+            redrawCanvas();
+            cout << "SCROLL DOWN: Camera shifted outwards." << endl;
+        }
     }
 }
 
@@ -807,7 +694,7 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
             for (int x = startX; x <= endX; x++)
                 drawPixel(x, y, colour.toPackedInt());
         }
-
+        
         // Fill bottom triangle (top-to-bottom, left-to-right)
         for (int y = bottomT.vertices[0].y; y < bottomT.vertices[2].y; ++y) {
             float x1 = getXFromY(y, bottomT.vertices[0], bottomT.vertices[2]);
@@ -1082,3 +969,172 @@ void saveImage(int width, int height)
     
     cout << "SAVED WINDOW AS PPM IMAGE FILE \"output.ppm\"" << endl;
 }
+
+
+bool loadObjFile(string filepath)
+{
+    ifstream file;
+    file.open(filepath);
+    
+    string o = "o";
+    string usemtl = "usemtl";
+    string v = "v";
+    string f = "f";
+    string vt = "vt";
+    string mtllib = "mtllib";
+    
+    string objectName;
+    string colorName;
+
+    if (file.is_open()) {
+        string line;
+        char delim = ' ';
+        while (getline(file, line)) {
+            //cout << line.c_str();
+            string *tokens = split(line, delim);
+            /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
+            for (int i=0; i<numberOfTokens; i++){
+                cout << tokens[i] << endl;
+            } */
+            
+            // o line
+            if (o.compare(tokens[0]) == 0){
+                objectName = tokens[1];
+            } 
+            
+            // usemtl line
+            else if (usemtl.compare(tokens[0]) == 0){
+                colorName = tokens[1];
+            }
+            
+            // v or vt line
+            else if (v.compare(tokens[0]) == 0 || vt.compare(tokens[0]) == 0){
+                float v1 = stof(tokens[1]);
+                float v2 = stof(tokens[2]);
+                float v3 = stof(tokens[3]);
+                vec3 vertex = vec3(v1, v2, v3);
+                if (v.compare(tokens[0]) == 0)
+                    vertices.push_back(vertex);
+                else
+                    textureVertices.push_back(vertex);
+            }
+            
+            // f line
+            else if (f.compare(tokens[0]) == 0) {
+                vec3 faceVertices[3];
+                
+                for (int i = 0; i < 3; i++) {
+                    string *faceValues = split (tokens[i+1], '/');
+                    
+                    // check size of faceValues
+                    //cout << "fv size: " << (int)faceValues->size() << endl;
+                    //cout << "fv1 value: " << faceValues[1] << endl;
+                    
+                    int vertexIndex = (stoi(faceValues[0])) - 1;
+                    
+                    if (faceValues[1].compare("") != 0) {
+                        int textureIndex = (stoi(faceValues[1])) - 1; // question mark
+                        cout << "tex num" << textureIndex << endl;
+                        vertexTextureIndexes.push_back({vertexIndex, textureIndex});
+                        
+                    }
+                    
+                    faceVertices[i] = vertices.at(vertexIndex);
+                    
+                }
+                
+                //for (int i=0; i<3; i++){
+                    //cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
+                //}
+                
+                Colour colour = RED;
+                
+                if ((int)palette.size() > 0){
+                
+                    int paletteIndex=0;
+                    while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
+                        paletteIndex++;
+                    }
+                    
+                    colour = palette.at(paletteIndex);
+                    //cout << colour.name << endl;
+                }
+                
+                
+                ModelTriangle triangle = ModelTriangle(faceVertices[0], faceVertices[1], 
+                                                        faceVertices[2], colour);
+                
+                triangles.push_back(triangle);
+            } 
+            
+            else if (mtllib.compare(tokens[0]) == 0) {
+                // could get the mtllibrary name
+            }
+            
+            else {
+                if (line != ""){ 
+                    cout << "undefined line in OBJ" << endl; 
+                    cout << line << endl;
+                }
+            }
+            
+        }
+        
+        cout << "I am finished with obj" << endl; 
+        
+        file.close();
+    } else {
+        printf("Loading error!\n");
+        return false;
+    }
+    
+    return true;
+}
+
+bool loadMtlFile(string filepath){
+    ifstream file;
+    file.open(filepath);
+    
+    if (file.is_open()) {
+        string line;
+        char delim = ' ';
+        string newmtl = "newmtl";
+        string kd = "Kd";
+        string colorName;
+
+        while (getline(file, line)) {
+            //cout << line.c_str();
+            string *tokens = split(line, delim);
+            //int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
+            //cout << tokens << endl;
+            
+            // newmtl line
+            if (newmtl.compare(tokens[0]) == 0){
+                //cout << "MTL match" << endl;
+                colorName = tokens[1];
+            }
+            // Kd line
+            else if (kd.compare(tokens[0]) == 0){
+                //cout << "KD match" << endl;
+                int r = std::round(stof(tokens[1]) * 255);
+                int g = std::round(stof(tokens[2]) * 255);
+                int b = std::round(stof(tokens[3]) * 255);
+                
+                palette.push_back(Colour(colorName, r, g, b));
+            } else {
+                if (line != ""){
+                    cout << "undefined line in MTL" << endl;
+                    cout << line << endl;
+                }
+            }
+        }
+        
+        cout << "I am finished with mtl" << endl; 
+        
+        file.close();
+    } else {
+        printf("Loading error!\n");
+        return false;
+    }
+    return true;
+}    

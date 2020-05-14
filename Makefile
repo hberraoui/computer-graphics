@@ -11,7 +11,8 @@ WINDOW_OBJECT = libs/sdw/DrawingWindow.o
 COMPILER = g++
 COMPILER_OPTIONS = -c -pipe -Wall -std=c++11
 DEBUG_OPTIONS = -ggdb -g3
-FUSSY_OPTIONS = -Werror -pedantic
+# FUSSY_OPTIONS = -Werror -pedantic
+FUSSY_OPTIONS = 
 # SANITIZER_OPTIONS = -O1 -fsanitize=undefined -fsanitize=address -fno-omit-frame-pointer
 SANITIZER_OPTIONS = -O1
 SPEEDY_OPTIONS = -Ofast -funsafe-math-optimizations -march=native
