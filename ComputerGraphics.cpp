@@ -1,5 +1,4 @@
 #include <ModelTriangle.h>
-#include <CanvasTriangle.h>
 #include <DrawingWindow.h>
 #include <Utils.h>
 #include <glm/glm.hpp>
@@ -65,29 +64,25 @@ void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical);
 
 string cornellBoxMtlPath = "./cornell-box/cornell-box.mtl";
 string cornellBoxObjPath = "./cornell-box/cornell-box.obj";
-string hackspaceLogoMtlPath = "./hackspace-logo/materials.mtl";
-string hackspaceLogoObjPath = "./hackspace-logo/logo.obj";
+string hackspaceLogoPath = "./hackspace-logo/";
+string hackspaceLogoMtlPath = hackspaceLogoPath + "materials.mtl";
+string hackspaceLogoObjPath = hackspaceLogoPath + "logo.obj";
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 vector<ModelTriangle> triangles;
 vector<CanvasTriangle> displayTriangles;
 vector<vec3> vertices;
 vector<Colour> palette;
-vector<vec2> textureVertices;
-vector<vec2> vertexTextureIndexes;
+vector<TexturePoint> texturePoints;
 
-// LOGO
-//int cameraStepBack = 500;
-
-// CORNELL BOX
-int cameraStepBack = 2;
-
-float vertFoV;
+int cameraStepBack = 6;
 float focalLength = 480;
-vec3 cameraPosition;
-mat3 cameraOrientation;
 float cameraSpeed = 2;
 float turnSpeedAngle = 45; // degrees
+float vertFoV;
+vec3 cameraPosition;
+mat3 cameraOrientation;
+PixelMap texture;
 
 enum renderModes {
     WIREFRAME,
@@ -125,10 +120,17 @@ int WinMain(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    loadMtlFile(cornellBoxMtlPath);
-    loadObjFile(cornellBoxObjPath);    
-    //loadMtlFile(hackspaceLogoMtlPath);
-    //loadObjFile(hackspaceLogoObjPath);
+    /// CORNELL BOX SETTINGS ↓↓↓
+    // loadMtlFile(cornellBoxMtlPath);
+    // loadObjFile(cornellBoxObjPath);
+    // cameraStepBack = 6;
+    /// CORNELL BOX SETTINGS ↑↑↑
+    
+    /// LOGO SETTINGS ↓↓↓
+    loadMtlFile(hackspaceLogoMtlPath);
+    loadObjFile(hackspaceLogoObjPath);
+    cameraStepBack = 480;
+    /// LOGO SETTINGS ↑↑↑
 
     centerCameraPosition();
     renderMode = WIREFRAME;
@@ -140,10 +142,9 @@ int main(int argc, char* argv[])
     redrawCanvas();
     
     SDL_Event event;
-    while(true)
-    {
+    while (true) {
         // We MUST poll for events - otherwise the window will freeze !
-        if(window.pollForInputEvents(&event)) handleEvent(event);
+        if (window.pollForInputEvents(&event)) handleEvent(event);
         update();
         // draw();
         // Need to render the frame at the end, or nothing actually gets shown on the screen !
@@ -211,10 +212,10 @@ void drawModelTriangles(bool filled)
             if (cameraToVertex.z > cameraPosition.z && cameraToVertex.x < window.width && cameraToVertex.y < window.height) {
                 isVisible = false;
             } else {
-
                 // calculate window coordinates and scale
                 CanvasPoint c(round((window.width/2) - (cameraToVertex.x)),
-                              round((window.height/2) - (cameraToVertex.y)));
+                              round((window.height/2) - (cameraToVertex.y)),
+                              triangle.texturePoints[i]);
                 
                 displayVertices[i] = c;
             }
@@ -225,8 +226,23 @@ void drawModelTriangles(bool filled)
                              displayVertices[1], 
                              displayVertices[2],
                              triangle.colour);
-            if (filled) drawFilledTriangle(t);
-            else drawStrokedTriangle(t);
+            if (filled) {
+                if (t.vertices[0].texturePoint.x != -1) {
+                    // cout << endl << "TRIANGLE:" << endl << t;
+                    // cout << t.vertices[0].texturePoint;
+                    // cout << t.vertices[1].texturePoint;
+                    // cout << t.vertices[2].texturePoint;
+                    // CanvasTriangle t1(CanvasPoint(160, 10,TexturePoint(300,  0)),
+                                      // CanvasPoint(300,230,TexturePoint(295,280)),
+                                      // CanvasPoint( 10,150,TexturePoint( 65,230)));
+                    drawFilledTriangle(t, texture);
+                    // drawPixelMap(texture);
+                } else {
+                    drawFilledTriangle(t);
+                }
+            } else { 
+                drawStrokedTriangle(t);
+            }
         }
     }
 }
@@ -353,7 +369,7 @@ Colour getColourFromIntersection(RayTriangleIntersection intersection, LightSour
     Colour colour = BLACK;
     vec3 lightBulb = light.position;
     float intensity = light.intensity;
-    if (intersection.distanceFromCamera != INFINITY) {        
+    if (intersection.distanceFromCamera != INFINITY) {
         // Diffuse lighting
         float distanceFromLight = distance(lightBulb, intersection.intersectionPoint);
 
@@ -373,9 +389,6 @@ Colour getColourFromIntersection(RayTriangleIntersection intersection, LightSour
 
         // Light a surface receives is directly proportional to the angle of incidence
         vec3 pointToLight = lightBulb - intersection.intersectionPoint;
-        // cout << "light pos:              " << to_string(lightBulb) << endl;
-        // cout << "intersection point pos: " << to_string(intersection.intersectionPoint) << endl;
-        // cout << "diff:                   " << to_string(pointToLight) << endl;
         float angleOfIncidence = normalize(glm::dot(normal, normalize(pointToLight)));
         
         // Calculate the brightness
@@ -390,10 +403,6 @@ Colour getColourFromIntersection(RayTriangleIntersection intersection, LightSour
         colour.red = applyShading(colour.red, brightness);
         colour.green = applyShading(colour.green, brightness);
         colour.blue = applyShading(colour.blue, brightness);
-        
-        // cout << "proximity        : " << distanceFromLight << endl;
-        // cout << "angleOfIncidence : " << brightness << endl;
-        // cout << "colour           : " << colour << endl;
     }
     return colour;
 }
@@ -519,6 +528,8 @@ void handleEvent(SDL_Event event)
             centerCameraPosition();
             redrawCanvas();
             cout << "c KEY: Camera reset." << endl;
+        } else if(event.key.keysym.sym == SDLK_z) {
+            textureMappingTask();
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
         cout << "MOUSE CLICKED" << endl;
@@ -887,6 +898,7 @@ PixelMap loadPixelMap(string fn)
         img.width = width;
         img.height = height;
         img.pixels = texture;
+        //cout << "PPM file '" << fn << "' successfully loaded!" << endl;
     } else {
         cout << "ERROR: Cannot open file." << endl;
     }
@@ -900,7 +912,7 @@ void drawImage()
     drawPixelMap(img);
 }
 
-/* // 2D task 5
+// 2D task 5
 void textureMappingTask()
 {
     PixelMap img = loadPixelMap("texture.ppm");
@@ -909,7 +921,7 @@ void textureMappingTask()
                      CanvasPoint( 10,150,TexturePoint( 65,330)));
     drawFilledTriangle(t, img);
     drawStrokedTriangle(t);
-} */
+}
 
 std::vector<TexturePoint> interpolate(TexturePoint from, TexturePoint to, int steps)
 {
@@ -930,65 +942,70 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
     CanvasPoint middle = t.vertices[1];
     CanvasPoint bottom = t.vertices[2];
 
-    // Interpolate "top" and "bottom" to find "flat" division vertex
-    float divVy = middle.y;
-    float divVx = getXFromY(divVy, top, bottom);
-    CanvasPoint divV(divVx,divVy);
-
-    // Calculate division vertex's texture point
-    int stepsTopToBottom = calcSteps(top, bottom);
-    int stepsTopToDivV = calcSteps(top, divV);
-    double proportion = (stepsTopToDivV * 1000) / stepsTopToBottom;
-    proportion = proportion / 1000; // Use 1000 multiplier to avoid low-bit loss
-    int stepsTexTopToBottom = calcSteps(top.texturePoint, bottom.texturePoint);
-    int stepsTexTopToDivV = std::floor(stepsTexTopToBottom * proportion);
-    std::vector<TexturePoint> texPoints = interpolate(top.texturePoint, bottom.texturePoint, stepsTexTopToBottom);
-    divV.texturePoint = texPoints.at(stepsTexTopToDivV);
-
-    // Divide triangle into 2 "flat" triangles
-    CanvasTriangle topT = CanvasTriangle(top, middle, divV);
-    CanvasTriangle bottomT = CanvasTriangle(middle, divV, bottom);
-
-    // Tackle the top triangle first
     int numberOfRows;
     std::vector<CanvasPoint> canvasStartPoints;
     std::vector<CanvasPoint> canvasEndPoints;
     std::vector<TexturePoint> textureStartPoints;
     std::vector<TexturePoint> textureEndPoints;
+    CanvasTriangle bottomT;
     
-    // Select biggest number of steps
-    numberOfRows = std::max((topT.vertices[1].y - topT.vertices[0].y),
-                            (topT.vertices[2].y - topT.vertices[0].y));
-    
-    // Interpolate start and end points in canvas space
-    canvasStartPoints = interpolate(topT.vertices[0], topT.vertices[1], numberOfRows);
-    canvasEndPoints = interpolate(topT.vertices[0], topT.vertices[2], numberOfRows);
-    
-    // Interpolate start and end points in texture space
-    textureStartPoints = interpolate(topT.vertices[0].texturePoint,
-                                     topT.vertices[1].texturePoint,
-                                     numberOfRows);
-    textureEndPoints = interpolate(topT.vertices[0].texturePoint,
-                                   topT.vertices[2].texturePoint,
-                                   numberOfRows);
+    // We only need to divide if our triangle isn't already flat
+    if (middle.y != bottom.y) {
+        // Interpolate "top" and "bottom" to find "flat" division vertex
+        float divVy = middle.y;
+        float divVx = getXFromY(divVy, top, bottom);
+        CanvasPoint divV(divVx,divVy);
 
-    for (int row = 0; row < numberOfRows; row++) {
-        CanvasPoint startPoint = canvasStartPoints.at(row);
-        CanvasPoint endPoint = canvasEndPoints.at(row);
-        int canvasRowLength = std::round(endPoint.x - startPoint.x);
-        std::vector<TexturePoint> textureRow = interpolate(textureStartPoints.at(row),
-                                                           textureEndPoints.at(row),
-                                                           canvasRowLength);
+        // Calculate division vertex's texture point
+        int stepsTopToBottom = calcSteps(top, bottom);
+        int stepsTopToDivV = calcSteps(top, divV);
+        float proportion = stepsTopToDivV / (float)stepsTopToBottom;
+        int stepsTexTopToBottom = calcSteps(top.texturePoint, bottom.texturePoint);
+        int stepsTexTopToDivV = std::floor(stepsTexTopToBottom * proportion);
+        std::vector<TexturePoint> texPoints = interpolate(top.texturePoint, bottom.texturePoint, stepsTexTopToBottom);
+        divV.texturePoint = texPoints.at(stepsTexTopToDivV);
 
-        for (int column = 0; column < (int) textureRow.size(); column++) {
-            int x = startPoint.x + column;
-            int y = topT.vertices[0].y + row;
-            TexturePoint texP = textureRow.at(column);
-            uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
-            drawPixel(x, y, pixel);
+        // Divide triangle into 2 "flat" triangles
+        CanvasTriangle topT = CanvasTriangle(top, middle, divV);
+        bottomT = CanvasTriangle(middle, divV, bottom);
+
+        // Tackle the top triangle first
+        
+        // Select biggest number of steps
+        numberOfRows = std::max((topT.vertices[1].y - topT.vertices[0].y),
+                                (topT.vertices[2].y - topT.vertices[0].y));
+        
+        // Interpolate start and end points in canvas space
+        canvasStartPoints = interpolate(topT.vertices[0], topT.vertices[1], numberOfRows);
+        canvasEndPoints = interpolate(topT.vertices[0], topT.vertices[2], numberOfRows);
+        
+        // Interpolate start and end points in texture space
+        textureStartPoints = interpolate(topT.vertices[0].texturePoint,
+                                         topT.vertices[1].texturePoint,
+                                         numberOfRows);
+        textureEndPoints = interpolate(topT.vertices[0].texturePoint,
+                                       topT.vertices[2].texturePoint,
+                                       numberOfRows);
+
+        for (int row = 0; row < numberOfRows; row++) {
+            CanvasPoint startPoint = canvasStartPoints.at(row);
+            CanvasPoint endPoint = canvasEndPoints.at(row);
+            int canvasRowLength = std::round(endPoint.x - startPoint.x);
+            std::vector<TexturePoint> textureRow = interpolate(textureStartPoints.at(row),
+                                                               textureEndPoints.at(row),
+                                                               canvasRowLength);
+
+            for (int column = 0; column < (int) textureRow.size(); column++) {
+                int x = startPoint.x + column;
+                int y = topT.vertices[0].y + row;
+                TexturePoint texP = textureRow.at(column);
+                uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
+                drawPixel(x, y, pixel);
+            }
         }
+    } else {
+        bottomT = t;
     }
-    
     // Tackle the bottom triangle next, again by selecting biggest number of steps
     numberOfRows = std::max((bottomT.vertices[2].y - bottomT.vertices[0].y),
                             (bottomT.vertices[2].y - bottomT.vertices[1].y));
@@ -1061,7 +1078,6 @@ void saveImage(int width, int height)
     cout << "SAVED WINDOW AS PPM IMAGE FILE \"output.ppm\"" << endl;
 }
 
-
 bool loadObjFile(string filepath)
 {
     ifstream file;
@@ -1082,12 +1098,7 @@ bool loadObjFile(string filepath)
 		char delim = ' ';
         while (getline(file, line)) {
             // cout << line << endl;
-			
             string *tokens = split(line, delim);
-            /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-            for (int i=0; i<numberOfTokens; i++){
-                cout << tokens[i] << endl;
-            } */
             
             // o line
             if (o.compare(tokens[0]) == 0){
@@ -1110,56 +1121,55 @@ bool loadObjFile(string filepath)
 			
 			// vt line 
 			else if (vt.compare(tokens[0]) == 0){
-                float v1 = stof(tokens[1]);
-                float v2 = stof(tokens[2]);
-                vec2 vertex = vec2(v1, v2);
-                textureVertices.push_back(vertex);
+                float v1 = stof(tokens[1]) * (texture.width  - 1);
+                float v2 = stof(tokens[2]) * (texture.height - 1);
+                TexturePoint tP(v1, v2);
+                texturePoints.push_back(tP);
+                //cout << "Texture point #" << texturePoints.size() << ": " << tP;
             }
             
             // f line
             else if (f.compare(tokens[0]) == 0) {
-                vec3 faceVertices[3];
+                ModelTriangle triangle;
+                bool noTexture = true;
                 
+                // A face consists of three vertices, so let's iterate over them as we read them in
                 for (int i = 0; i < 3; i++) {
-                    string *faceValues = split (tokens[i+1], '/');
+                    // Split the face values with the delimiter '/'
+                    string *faceValues = split(tokens[i + 1], '/');
                     
-                    // check size of faceValues
-                    //cout << "fv size: " << (int)faceValues->size() << endl;
-                    //cout << "fv1 value: " << faceValues[1] << endl;
-                    
+                    // The 0th token is the index of the face's current vertex
                     int vertexIndex = (stoi(faceValues[0])) - 1;
                     
+                    // If the 1th token isn't empty, this vertex also has an associated texture point
                     if (faceValues[1].compare("") != 0) {
-                        int textureIndex = (stoi(faceValues[1])) - 1; // question mark
-                        // cout << "tex num " << textureIndex << endl;
-                        vertexTextureIndexes.push_back({vertexIndex, textureIndex});
+                        noTexture = false;
+                        int texturePointIndex = (stoi(faceValues[1])) - 1;
                         
+                        triangle.colour = WHITE;
+                        triangle.texturePoints[i] = texturePoints.at(texturePointIndex);
                     }
                     
-                    faceVertices[i] = vertices.at(vertexIndex);
-                    
+                    triangle.vertices[i] = vertices.at(vertexIndex);
                 }
-                
-                //for (int i=0; i<3; i++){
-                    //cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
-                //}
-                
-                Colour colour(rand() % 255, rand() % 255, rand() % 255);
-                
-                if ((int)palette.size() > 0){
-                
-                    int paletteIndex=0;
-                    while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex<(int)palette.size()){
+
+                if (noTexture) {
+                    // Search the palette for a colour which matches the specified colour name                    
+                    int paletteIndex = 0;
+                    while (colorName.compare(palette.at(paletteIndex).name) != 0 && paletteIndex < (int) palette.size()) {
+                        // Keep looping until we find a match, or reach the end of the palette
                         paletteIndex++;
                     }
-                    
-                    colour = palette.at(paletteIndex);
-                    //cout << colour.name << endl;
+
+                    if (paletteIndex == (int) palette.size()) {
+                        // If the palette is empty, or no match was found, but the face doesn't use a texture...
+                        triangle.colour = Colour(rand() % 255, rand() % 255, rand() % 255);
+                        // ...let the face use a randomly generated colour instead!
+                    } else {
+                        // Otherwise, set the face's colour to be the colour from the palette which had a matching name
+                        triangle.colour = palette.at(paletteIndex);
+                    }
                 }
-                
-                
-                ModelTriangle triangle = ModelTriangle(faceVertices[0], faceVertices[1], 
-                                                        faceVertices[2], colour);
                 
                 triangles.push_back(triangle);
             } 
@@ -1197,6 +1207,7 @@ bool loadMtlFile(string filepath){
         char delim = ' ';
         string newmtl = "newmtl";
         string kd = "Kd";
+        string mapkd = "map_Kd";
         string colorName;
 
         while (getline(file, line)) {
@@ -1218,6 +1229,12 @@ bool loadMtlFile(string filepath){
                 int b = std::round(stof(tokens[3]) * 255);
                 
                 palette.push_back(Colour(colorName, r, g, b));
+            }
+            // map_Kd line
+            else if (mapkd.compare(tokens[0]) == 0){
+                //cout << "map_Kd match" << endl;
+                string fileName = tokens[1];
+                texture = loadPixelMap(hackspaceLogoPath + fileName);
             } else {
                 if (line != ""){
                     cout << "undefined line in MTL" << endl;
@@ -1226,7 +1243,7 @@ bool loadMtlFile(string filepath){
             }
         }
         
-        //cout << "I am finished with mtl" << endl; 
+        // cout << "I am finished with mtl" << endl; 
         
         file.close();
     } else {
@@ -1234,4 +1251,4 @@ bool loadMtlFile(string filepath){
         return false;
     }
     return true;
-}    
+}
