@@ -58,6 +58,7 @@ vec3 packedIntToVec3(uint32_t colour);
 void rainbowInterpolation();
 void greyscaleInterpolation();
 void drawRedNoise();
+void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical);
 
 #define WIDTH 640    
 #define HEIGHT 480
@@ -127,6 +128,12 @@ int main(int argc, char* argv[])
     centerCameraPosition();
     renderMode = RAYTRACE;
     cout << "Starting in RAYTRACE mode." << endl;
+    
+    lookAt(cameraPosition, vec3(triangles.at(0).vertices[1].x, 
+								triangles.at(0).vertices[1].y, 
+								triangles.at(0).vertices[1].z), 
+								vec3(0, 1, 0));
+
     redrawCanvas();
     
     SDL_Event event;
@@ -139,6 +146,24 @@ int main(int argc, char* argv[])
         // Need to render the frame at the end, or nothing actually gets shown on the screen !
         window.renderFrame();
     }
+}
+
+void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical)
+{
+	vec3 forward = normalize(fromPoint - toPoint);
+	vec3 right = glm::cross(normalize(vertical), forward);
+	vec3 up = glm::cross(forward, right);
+	
+	cameraOrientation[0][0] = right.x; 
+    cameraOrientation[1][0] = right.y; 
+    cameraOrientation[2][0] = right.z; 
+    cameraOrientation[0][1] = up.x; 
+    cameraOrientation[1][1] = up.y; 
+    cameraOrientation[2][1] = up.z; 
+    cameraOrientation[0][2] = forward.x; 
+    cameraOrientation[1][2] = forward.y; 
+    cameraOrientation[2][2] = forward.z;
+	
 }
 
 void centerCameraPosition()
@@ -314,7 +339,7 @@ void raytraceCanvas()
             if (closest.distanceFromCamera != INFINITY) {
                 colour = closest.intersectedTriangle.colour;
                 float r = distance(lightBulb, closest.intersectionPoint);
-                float intensity = 36;
+                float intensity = 100;
                 float brightness = intensity / (float)(4 * (float)pi<float>() * r * r);
                 colour.red = brighten(colour.red, brightness);
                 colour.green = brighten(colour.green, brightness);
@@ -378,47 +403,38 @@ void spinCamera(float angleDegrees)
     cout << "Spinning camera " << angleDegrees << " degrees." << endl;
 }
 
-// CONTROLS:
-// ← Left arrow key: Shift camera position to the left
-// → Right arrow key: Shift camera position to the right
-// MOUSE SCROLL UP: Shift camera position inwards
-// MOUSE SCROLL DOWN: Shift camera position outwards
-// f Key: change to wireframe mode
-// r Key: change to raster mode
-// t Key: change to raytrace mode
-// a/d Keys: pan the camera
-// w/s Keys: tilt the camera
-// q/e Keys: spin the camera
-// c Key: reset the camera
-
 void handleEvent(SDL_Event event)
 {
+	vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
+	vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
+	vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
+	
     if(event.type == SDL_KEYDOWN) {
         if(event.key.keysym.sym == SDLK_LEFT) {
-            cameraPosition.x -= cameraSpeed;
+            cameraPosition -= cameraSpeed  * rightCO;
+            redrawCanvas();
             cout << "LEFT: Camera shifted left." << endl;
-            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_RIGHT) {
-            cameraPosition.x += cameraSpeed;
+            cameraPosition += cameraSpeed  * rightCO;
+            redrawCanvas();
             cout << "RIGHT: Camera shifted right." << endl;
-            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_UP) {
-            cameraPosition.y += cameraSpeed;
+            cameraPosition += cameraSpeed * upCO;
+            redrawCanvas();
             cout << "UP: Camera shifted up." << endl;
-            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_DOWN) {
-            cameraPosition.y -= cameraSpeed;
-            cout << "DOWN: Camera shifted down." << endl;
+            cameraPosition -= cameraSpeed * upCO;
             redrawCanvas();
+            cout << "DOWN: Camera shifted down." << endl;
         } else if(event.key.keysym.sym == SDLK_f) {
-            cout << "f KEY: Switched to WIREFRAME MODE." << endl;
             changeRenderMode(WIREFRAME);
+            cout << "f KEY: Switched to WIREFRAME MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_r) {
-            cout << "r KEY: Switched to RASTER MODE." << endl;
             changeRenderMode(RASTER);
+            cout << "r KEY: Switched to RASTER MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_t) {
-            cout << "t KEY: Switched to RAYTRACE MODE." << endl;
             changeRenderMode(RAYTRACE);
+            cout << "t KEY: Switched to RAYTRACE MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_a) {
             cout << "a KEY: ";
             panCamera(turnSpeedAngle);
@@ -439,26 +455,27 @@ void handleEvent(SDL_Event event)
             spinCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_c) {
             centerCameraPosition();
-            cout << "c KEY: Camera reset." << endl;
             redrawCanvas();
+            cout << "c KEY: Camera reset." << endl;
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
         cout << "MOUSE CLICKED" << endl;
     } else if(event.type == SDL_MOUSEWHEEL) {
         if(event.wheel.y > 0) // scroll up
         {
-            cameraPosition.z -= cameraSpeed;
-            cout << "SCROLL UP: Camera shifted inwards." << endl;
+            cameraPosition -= cameraSpeed * forwardCO;
             redrawCanvas();
+            cout << "SCROLL UP: Camera shifted inwards." << endl;
         }
         else if(event.wheel.y < 0) // scroll down
         {
-            cameraPosition.z += cameraSpeed;
-            cout << "SCROLL DOWN: Camera shifted outwards." << endl;
+            cameraPosition += cameraSpeed * forwardCO;
             redrawCanvas();
+            cout << "SCROLL DOWN: Camera shifted outwards." << endl;
         }
     }
 }
+
 
 /////////////////
 // FUNCTIONS USED A LOT
