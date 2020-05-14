@@ -89,11 +89,6 @@ mat3 cameraOrientation;
 float cameraSpeed = 2;
 float turnSpeedAngle = 45; // degrees
 
-// Position our proximity light source at the centre of the ceiling light vertices
-vec3 lightBulb((-0.884011 +  0.415989) / 2,
-               ( 5.219334 +  5.218497) / 2,
-               (-2.517968 + -3.567968) / 2);
-
 enum renderModes {
     WIREFRAME,
     RASTER,
@@ -117,7 +112,6 @@ void redrawCanvas()
             break;
     }
     
-    cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
     cout << "[CAM POS] " << to_string(cameraPosition) << endl;
     cout << "[CAM ORIENTATION] " << to_string(cameraOrientation) << endl;
 }
@@ -236,7 +230,7 @@ void drawModelTriangles(bool filled)
         }
     }
 }
-constexpr float kEpsilon = 1e-8;
+
 RayTriangleIntersection getClosestIntersection(int x, int y)
 {
     RayTriangleIntersection closestIntersection;
@@ -329,26 +323,76 @@ int applyShading(int v, float brightness)
     return x;
 }
 
-Colour getColourFromIntersection(RayTriangleIntersection intersection)
+class LightSource
+{
+    public:
+        vec3 position;
+        float intensity;
+        
+        LightSource()
+        {
+            position = vec3(0,0,0);
+            intensity = 0;
+        }
+        
+        LightSource(vec3 pos)
+        {
+            position = pos;
+            intensity = 0;
+        }
+        
+        LightSource(vec3 pos, float lightIntensity)
+        {
+            position = pos;
+            intensity = lightIntensity;
+        }
+};
+
+Colour getColourFromIntersection(RayTriangleIntersection intersection, LightSource light)
 {
     Colour colour = BLACK;
-    if (intersection.distanceFromCamera != INFINITY) {
+    vec3 lightBulb = light.position;
+    float intensity = light.intensity;
+    if (intersection.distanceFromCamera != INFINITY) {        
+        // Diffuse lighting
         float distanceFromLight = distance(lightBulb, intersection.intersectionPoint);
-        float intensity = 100;
-        float brightness = intensity / (float)(4 * (float)pi<float>() * distanceFromLight * distanceFromLight);
+
+        // Proximity
+        float proximity = 1 / (float)(4 * (float)pi<float>() * distanceFromLight * distanceFromLight);
         
+        // Get the triangular plane and its vertices
+        ModelTriangle t = intersection.intersectedTriangle;
+        vec3 p0 = t.vertices[0];
+        vec3 p1 = t.vertices[1];
+        vec3 p2 = t.vertices[2];
+        
+        // Calculate normal
+        vec3 e0 = p1 - p0;
+        vec3 e1 = p2 - p0;
+        vec3 normal = glm::cross(e0, e1);
+
+        // Light a surface receives is directly proportional to the angle of incidence
+        vec3 pointToLight = lightBulb - intersection.intersectionPoint;
+        // cout << "light pos:              " << to_string(lightBulb) << endl;
+        // cout << "intersection point pos: " << to_string(intersection.intersectionPoint) << endl;
+        // cout << "diff:                   " << to_string(pointToLight) << endl;
+        float angleOfIncidence = normalize(glm::dot(normal, normalize(pointToLight)));
+        
+        // Calculate the brightness
+        float brightness = intensity * proximity * angleOfIncidence;
+
         // Ambient lighting
-        float lighting_floor = 0.5;
-        if (brightness < lighting_floor) brightness = lighting_floor;
+        float lighting_floor = 0.4f;
+        brightness = std::max(lighting_floor, brightness);
         
-        // Apply the brightness
+        // Apply the shading
         colour = intersection.intersectedTriangle.colour;
         colour.red = applyShading(colour.red, brightness);
         colour.green = applyShading(colour.green, brightness);
         colour.blue = applyShading(colour.blue, brightness);
         
-        // cout << "point->light dist: " << distanceFromLight << endl;
-        // cout << "brightness       : " << brightness << endl;
+        // cout << "proximity        : " << distanceFromLight << endl;
+        // cout << "angleOfIncidence : " << brightness << endl;
         // cout << "colour           : " << colour << endl;
     }
     return colour;
@@ -361,7 +405,14 @@ void raytraceCanvas()
         for (int x = 0; x < window.width; x++) {
             // Shoot a ray from the camera such that it intersects this pixel of the canvas
             RayTriangleIntersection closest = getClosestIntersection(x, y);
-            Colour colour = getColourFromIntersection(closest);            
+            
+            // Position our proximity light source at the centre of the ceiling light vertices
+            LightSource lightBulb(vec3(((-0.884011 +  0.415989) / 2),
+                                       (( 5.219334 +  5.218497) / 2) - 0.4,
+                                       ((-2.517968 + -3.567968) / 2)),
+                                  200); // intensity
+
+            Colour colour = getColourFromIntersection(closest, lightBulb);            
             drawPixel(x, y, colour.toPackedInt());
         }
     }
