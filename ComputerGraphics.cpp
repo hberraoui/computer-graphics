@@ -4,6 +4,7 @@
 #include <Utils.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <glm/geometric.hpp>
 #include <PixelMap.h>
 #include <fstream>
 #include <vector>
@@ -273,11 +274,11 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
             float ndcY = (v + 0.5) / window.height;
             float canvasX = 2 * (ndcX) - 1;
             float canvasY = 1 - 2 * (ndcY);
-            vec3 intersectionPoint = vec3(canvasX, canvasY, (cameraPosition.z + distanceFromCamera));
+            vec3 intersectionPoint = vec3(canvasX, canvasY, (focalLength + distanceFromCamera));
 
             // If this intersection point is closer to the camera than the previous closest intersection
             if (closestIntersection.distanceFromCamera > distanceFromCamera) {
-                if (intersectionPoint.z > cameraPosition.z && intersectionPoint.x < window.width && intersectionPoint.y < window.height){
+                if (intersectionPoint.z > focalLength && intersectionPoint.x < window.width && intersectionPoint.y < window.height){
                     // Then the new intersection we have found is the new closest intersection
                     closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
                 }
@@ -299,10 +300,19 @@ void rasteriseCanvas()
     drawModelTriangles(true);
 }
 
-vec3 lightBulb(-0.884011, 5.218497, -0.567968);
+int brighten(int v, float brightness)
+{
+    int x = (int) round(v * brightness);
+    if (x > 255) return 255;
+    if (x < 0) return 0;
+    return x;
+}
+
 void raytraceCanvas()
 {
     // Iterate over every pixel in the canvas
+    // for (int y = 220; y < 250; y++) {
+        // for (int x = 250; x < 360; x++) {
     for (int y = 0; y < window.height; y++) {
         for (int x = 0; x < window.width; x++) {
             // Shoot a ray from the camera such that it intersects this pixel of the canvas
@@ -310,20 +320,25 @@ void raytraceCanvas()
 
             Colour colour = BLACK;
             if (closest.distanceFromCamera != INFINITY) {
+                vec3 lightBulb(-0.884011, 5.218497, focalLength + -3.567968);
                 colour = closest.intersectedTriangle.colour;
-                float r = distance(lightBulb, closest.intersectionPoint);
-                //cout << "r: " << r << endl;
-                float brightness = 4 / r;
-                colour.red = round(colour.red * brightness);
-                colour.green = round(colour.green * brightness);
-                colour.blue = round(colour.blue * brightness);
+                float r = distance(closest.intersectionPoint, lightBulb);
+                float pi = glm::pi<float>();
+                float brightness = 9/r;
+                colour.red = brighten(colour.red, brightness);
+                colour.green = brighten(colour.green, brightness);
+                colour.blue = brighten(colour.blue, brightness);
+                // cout << "point->light dist: " << r << endl;
+                // cout << "brightness       : " << brightness << endl;
+                // cout << "colour           : " << colour << endl;
+                
             }
             
             drawPixel(x, y, colour.toPackedInt());
         }
     }
-    cout << "[CAMERA POSITION] " << to_string(cameraPosition) << endl;
-    cout << "[CAMERA ORIENTATION] " << to_string(cameraOrientation) << endl;
+    cout << "[CAM POS] " << to_string(cameraPosition) << endl;
+    cout << "[CAM ORIENTATION] " << to_string(cameraOrientation);
 }
 
 void update()
@@ -391,29 +406,29 @@ void handleEvent(SDL_Event event)
     if(event.type == SDL_KEYDOWN) {
         if(event.key.keysym.sym == SDLK_LEFT) {
             cameraPosition.x -= cameraSpeed;
-            redrawCanvas();
             cout << "LEFT: Camera shifted left." << endl;
+            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_RIGHT) {
             cameraPosition.x += cameraSpeed;
-            redrawCanvas();
             cout << "RIGHT: Camera shifted right." << endl;
+            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_UP) {
             cameraPosition.y -= cameraSpeed;
-            redrawCanvas();
             cout << "UP: Camera shifted up." << endl;
+            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_DOWN) {
             cameraPosition.y += cameraSpeed;
-            redrawCanvas();
             cout << "DOWN: Camera shifted down." << endl;
+            redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_f) {
-            changeRenderMode(WIREFRAME);
             cout << "f KEY: Switched to WIREFRAME MODE." << endl;
+            changeRenderMode(WIREFRAME);
         } else if(event.key.keysym.sym == SDLK_r) {
-            changeRenderMode(RASTER);
             cout << "r KEY: Switched to RASTER MODE." << endl;
+            changeRenderMode(RASTER);
         } else if(event.key.keysym.sym == SDLK_t) {
-            changeRenderMode(RAYTRACE);
             cout << "t KEY: Switched to RAYTRACE MODE." << endl;
+            changeRenderMode(RAYTRACE);
         } else if(event.key.keysym.sym == SDLK_a) {
             cout << "a KEY: ";
             panCamera(turnSpeedAngle);
@@ -434,8 +449,8 @@ void handleEvent(SDL_Event event)
             spinCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_c) {
             centerCameraPosition();
-            redrawCanvas();
             cout << "c KEY: Camera reset." << endl;
+            redrawCanvas();
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
         cout << "MOUSE CLICKED" << endl;
@@ -443,14 +458,14 @@ void handleEvent(SDL_Event event)
         if(event.wheel.y > 0) // scroll up
         {
             cameraPosition.z -= cameraSpeed;
-            redrawCanvas();
             cout << "SCROLL UP: Camera shifted inwards." << endl;
+            redrawCanvas();
         }
         else if(event.wheel.y < 0) // scroll down
         {
             cameraPosition.z += cameraSpeed;
-            redrawCanvas();
             cout << "SCROLL DOWN: Camera shifted outwards." << endl;
+            redrawCanvas();
         }
     }
 }
