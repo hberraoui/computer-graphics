@@ -1,5 +1,11 @@
 #include <iostream>
 
+#define WHITE Colour(255,255,255)
+#define RED Colour(255,0,0)
+#define GREEN Colour(0,255,0)
+#define BLUE Colour(0,0,255)
+#define BLACK Colour(0,0,0)
+
 class Colour
 {
   public:
