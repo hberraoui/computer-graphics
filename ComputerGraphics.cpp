@@ -263,23 +263,10 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         if (0.0f <= u && u <= 1.0f && 0.0f <= v && v <= 1.0f && (u + v) <= 1.0f) {
             // From here, we will need to transpose these (u,v) co-ordinates into model space
             // And then, like in rasterisation, from model space to canvas space
-            
-            // First, compute the plane's normal
-            bool doesIntersect = true;
-            vec3 p0p1 = p1 - p0;
-            vec3 p0p2 = p2 - p0;
-            vec3 N = glm::cross(p0p1, p0p2);
-            
-            float NdotRayDirection = glm::dot(N, rayDirection);
-            if (abs(NdotRayDirection) < kEpsilon) doesIntersect = false;
-            
-            float d = glm::dot(N, p0);
-            
-            float tT = d / NdotRayDirection;
-            vec3 intersectionPoint = (tT * rayDirection);
+            vec3 intersectionPoint = triangle.vertices[0] + u*e0 + v*e1;
 
             // If this intersection point is closer to the camera than the previous closest intersection
-            if (closestIntersection.distanceFromCamera > distanceFromCamera && doesIntersect) {
+            if (closestIntersection.distanceFromCamera > distanceFromCamera) {
                 // Then the new intersection we have found is the new closest intersection
                 closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
             }
@@ -310,7 +297,10 @@ int brighten(int v, float brightness)
 
 void raytraceCanvas()
 {
-    vec3 lightBulb(-0.884011,5.119334,-2.517968);
+    vec3 lightBulb;
+    lightBulb.x = (-0.884011 + 0.415989) / 2;
+    lightBulb.y = (5.219334 + 5.218497) / 2;
+    lightBulb.z = (-2.517968 +-3.567968) / 2;
     
     cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
     
@@ -324,13 +314,13 @@ void raytraceCanvas()
             if (closest.distanceFromCamera != INFINITY) {
                 colour = closest.intersectedTriangle.colour;
                 float r = distance(lightBulb, closest.intersectionPoint);
-                float intensity = 360;
+                float intensity = 36;
                 float brightness = intensity / (float)(4 * (float)pi<float>() * r * r);
                 colour.red = brighten(colour.red, brightness);
                 colour.green = brighten(colour.green, brightness);
                 colour.blue = brighten(colour.blue, brightness);
                 // cout << "point->light dist: " << r << endl;
-                //cout << "brightness       : " << brightness << endl;
+                // cout << "brightness       : " << brightness << endl;
                 // cout << "colour           : " << colour << endl;
             }
             
