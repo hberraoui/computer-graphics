@@ -73,7 +73,7 @@ Colour bufferColours[WIDTH][HEIGHT];
 
 
 
-// IMPORTED STUFF ----------------------------------------------------
+//   ----------------------------------------------------
 float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
@@ -108,7 +108,6 @@ void displayBufferColours();
 // --------------------------------------------------------------------------
 
 
-// For the sake of Windows
 int WinMain(int argc, char* argv[])
 {
   main(argc, argv);
@@ -123,7 +122,7 @@ int main(int argc, char* argv[])
 	
 	//loadMtlFile(hackspaceLogoMtlPath);
 	//loadObjFile(hackspaceLogoObjPath);
-	// we have world triangles
+	
 	
 	centerCameraPosition();
 	focalLength = abs((cameraPosition.z - centerOfWorld)/2);
@@ -131,12 +130,6 @@ int main(int argc, char* argv[])
 	cout << "f: " << focalLength << endl;
 	
 	transformVertexCoordinatesToCanvas();
-		
-		
-	
-/* 	for (Colour c : palette){
-		cout << c << endl; 
-	} */
 	
 	SDL_Event event;
 	while(true)
@@ -353,9 +346,7 @@ void transformVertexCoordinatesToCanvas(){
 		for (int j=0; j<HEIGHT; j++){
 			depthBuffer[i][j] = numeric_limits<float>::infinity();
 			bufferColours[i][j] = BLACK;
-			//cout << depthBuffer[i][j] << " /";
 		}
-		//cout << endl;
 	}
 	
 	
@@ -408,7 +399,7 @@ void transformVertexCoordinatesToCanvas(){
 			
 			int dbx = pointCanvasSpace.x;
 			int dby = pointCanvasSpace.y;
-			float dbz = pointWorldSpace.z; // 1/Zworld
+			float dbz = pointWorldSpace.z;
 			
 			cout << "window point "<< j+1 << ": "<<pointCanvasSpace.x << " " 
 				<< pointCanvasSpace.y << " " << z << endl;
@@ -459,43 +450,46 @@ int triangleStrokeCounter = 0;
 int triangleFillCounter = 0;
 void handleEvent(SDL_Event event)
 {
+	
+	
+	// UP ARROW TO GENERATE FILLED TRIANGLES
+	// MOUSE CLICK TO GENERATE WIREFRAMES
+	
   if(event.type == SDL_KEYDOWN) {
     if(event.key.keysym.sym == SDLK_LEFT) cout << "LEFT" << endl;
     else if(event.key.keysym.sym == SDLK_RIGHT) cameraPosition.x += 0.2;
     else if(event.key.keysym.sym == SDLK_UP) {
 		cout << "UP pressed" << endl;
-		if (triangleFillCounter < (int)displayTriangles.size()){
+		while (triangleFillCounter < (int)displayTriangles.size()){
 			drawFilledTriangle(displayModelTriangles.at(triangleFillCounter));
 			triangleFillCounter++;
 			cout << "filled a triangle " << triangleFillCounter << endl;
-		} else { 
+		}
 		cout << "no more triangles to fill" << endl;
 		triangleFillCounter = 0;
-		}
 	}
     else if(event.key.keysym.sym == SDLK_DOWN) cout << "DOWN" << endl;
 	}
 	else if(event.type == SDL_MOUSEBUTTONDOWN) {
 		cout << "Mouse clicked" << endl;
-		if (triangleStrokeCounter < (int)displayModelTriangles.size()){
+		while (triangleStrokeCounter < (int)displayModelTriangles.size()){
 			drawStrokedTriangle(displayModelTriangles.at(triangleStrokeCounter));
 			triangleStrokeCounter++;
 			cout << "stroked a triangle " << triangleStrokeCounter << endl;
-		} else { 
+		}
 		cout << "no more triangles to stroke" << endl;
 		triangleStrokeCounter = 0;
-		}
   }
 }
 
-// IMPORTED STUFF ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
 /////////////////
 // STRUCTURE
 ////////////////
 
 
 /////////////////
-// FUNCTIONS USED A LOT
+// 
 ////////////////
 
 int calcSteps(float fromX, float fromY, float toX, float toY)
