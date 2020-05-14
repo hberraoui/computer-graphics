@@ -80,7 +80,7 @@ vector<CanvasTriangle> displayTriangles;
 // int scale = 1;
 
 // CORNELL BOX
-float focalLength;
+float vertFoV;
 vec3 cameraPosition;
 mat3 cameraOrientation;
 float cameraSpeed = 2;
@@ -164,15 +164,8 @@ void centerCameraPosition()
         }
     }
     int cameraStepBack = 2;
-    focalLength = 480;
+    vertFoV = window.height / 2;
     cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
-    
-    // Camera orientation matrix:
-    //     Right  Up   Forward
-    // x [ 1      0    0       ]
-    // y [ 0      1    0       ]
-    // z [ 0      0    1       ]
-    // cameraOrientation = mat3(vec3(1,1,1),vec3(1,1,1),vec3(1,1,1));
     cameraOrientation = mat3(vec3(1,0,0),vec3(0,1,0),vec3(0,0,1));
 }
 
@@ -187,8 +180,8 @@ void drawModelTriangles(bool filled)
             cameraToVertex = cameraToVertex * cameraOrientation;
             
             // perspective projection
-            cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
-            cameraToVertex.y = -focalLength * (cameraToVertex.y / cameraToVertex.z);
+            cameraToVertex.x = vertFoV * (cameraToVertex.x / cameraToVertex.z);
+            cameraToVertex.y = -vertFoV * (cameraToVertex.y / cameraToVertex.z);
             if (cameraToVertex.z > cameraPosition.z && cameraToVertex.x < window.width && cameraToVertex.y < window.height) {
                 isVisible = false;
             } else {
@@ -211,7 +204,7 @@ void drawModelTriangles(bool filled)
         }
     }
 }
-
+constexpr float kEpsilon = 1e-8;
 RayTriangleIntersection getClosestIntersection(int x, int y)
 {
     RayTriangleIntersection closestIntersection;
@@ -236,8 +229,8 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         
         // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
         float xPos = (x - (window.width  / 2));
-        float yPos = (y - (window.height / 2)) * -1; // the y-axis origin is "upside-down" in co-ordinate space
-        float zPos = (0 - (focalLength   / 2));
+        float yPos = ((window.height / 2) - y);
+        float zPos = (-(window.height / 2)) / (float)(tan(vertFoV * 0.5));
         vec3 rayDirection = normalize(vec3(xPos, yPos, zPos) - cameraPosition) * cameraOrientation;
         
         // Combining [3] with [1], we get:
@@ -270,18 +263,25 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
         if (0.0f <= u && u <= 1.0f && 0.0f <= v && v <= 1.0f && (u + v) <= 1.0f) {
             // From here, we will need to transpose these (u,v) co-ordinates into model space
             // And then, like in rasterisation, from model space to canvas space
-            float ndcX = (u + 0.5) / window.width;
-            float ndcY = (v + 0.5) / window.height;
-            float canvasX = 2 * (ndcX) - 1;
-            float canvasY = 1 - 2 * (ndcY);
-            vec3 intersectionPoint = vec3(canvasX, canvasY, (focalLength + distanceFromCamera));
+            
+            // First, compute the plane's normal
+            bool doesIntersect = true;
+            vec3 p0p1 = p1 - p0;
+            vec3 p0p2 = p2 - p0;
+            vec3 N = glm::cross(p0p1, p0p2);
+            
+            float NdotRayDirection = glm::dot(N, rayDirection);
+            if (abs(NdotRayDirection) < kEpsilon) doesIntersect = false;
+            
+            float d = glm::dot(N, p0);
+            
+            float tT = d / NdotRayDirection;
+            vec3 intersectionPoint = (tT * rayDirection);
 
             // If this intersection point is closer to the camera than the previous closest intersection
-            if (closestIntersection.distanceFromCamera > distanceFromCamera) {
-                if (intersectionPoint.z > focalLength && intersectionPoint.x < window.width && intersectionPoint.y < window.height){
-                    // Then the new intersection we have found is the new closest intersection
-                    closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
-                }
+            if (closestIntersection.distanceFromCamera > distanceFromCamera && doesIntersect) {
+                // Then the new intersection we have found is the new closest intersection
+                closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
             }
         }
     }
@@ -310,9 +310,11 @@ int brighten(int v, float brightness)
 
 void raytraceCanvas()
 {
+    vec3 lightBulb(-0.884011,5.119334,-2.517968);
+    
+    cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
+    
     // Iterate over every pixel in the canvas
-    // for (int y = 220; y < 250; y++) {
-        // for (int x = 250; x < 360; x++) {
     for (int y = 0; y < window.height; y++) {
         for (int x = 0; x < window.width; x++) {
             // Shoot a ray from the camera such that it intersects this pixel of the canvas
@@ -320,18 +322,16 @@ void raytraceCanvas()
 
             Colour colour = BLACK;
             if (closest.distanceFromCamera != INFINITY) {
-                vec3 lightBulb(-0.884011, 5.218497, focalLength + -3.567968);
                 colour = closest.intersectedTriangle.colour;
-                float r = distance(closest.intersectionPoint, lightBulb);
-                float pi = glm::pi<float>();
-                float brightness = 9/r;
+                float r = distance(lightBulb, closest.intersectionPoint);
+                float intensity = 360;
+                float brightness = intensity / (float)(4 * (float)pi<float>() * r * r);
                 colour.red = brighten(colour.red, brightness);
                 colour.green = brighten(colour.green, brightness);
                 colour.blue = brighten(colour.blue, brightness);
                 // cout << "point->light dist: " << r << endl;
-                // cout << "brightness       : " << brightness << endl;
+                //cout << "brightness       : " << brightness << endl;
                 // cout << "colour           : " << colour << endl;
-                
             }
             
             drawPixel(x, y, colour.toPackedInt());
@@ -413,11 +413,11 @@ void handleEvent(SDL_Event event)
             cout << "RIGHT: Camera shifted right." << endl;
             redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_UP) {
-            cameraPosition.y -= cameraSpeed;
+            cameraPosition.y += cameraSpeed;
             cout << "UP: Camera shifted up." << endl;
             redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_DOWN) {
-            cameraPosition.y += cameraSpeed;
+            cameraPosition.y -= cameraSpeed;
             cout << "DOWN: Camera shifted down." << endl;
             redrawCanvas();
         } else if(event.key.keysym.sym == SDLK_f) {
