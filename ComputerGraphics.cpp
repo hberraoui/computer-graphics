@@ -69,19 +69,21 @@ string hackspaceLogoMtlPath = "./hackspace-logo/materials.mtl";
 string hackspaceLogoObjPath = "./hackspace-logo/logo.obj";
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
-vector<Colour> palette;
-vector<vec3> textureVertices;
-vector<vec2> vertexTextureIndexes;
-vector<vec3> vertices;
 vector<ModelTriangle> triangles;
 vector<CanvasTriangle> displayTriangles;
+vector<vec3> vertices;
+vector<Colour> palette;
+vector<vec2> textureVertices;
+vector<vec2> vertexTextureIndexes;
 
 // LOGO
-// float cameraStepBack = 200;
-// int scale = 1;
+//int cameraStepBack = 500;
 
 // CORNELL BOX
+int cameraStepBack = 2;
+
 float vertFoV;
+float focalLength = 480;
 vec3 cameraPosition;
 mat3 cameraOrientation;
 float cameraSpeed = 2;
@@ -126,14 +128,12 @@ int main(int argc, char* argv[])
     //loadObjFile(hackspaceLogoObjPath);
 
     centerCameraPosition();
-    renderMode = RAYTRACE;
-    cout << "Starting in RAYTRACE mode." << endl;
-    
-    lookAt(cameraPosition, vec3(triangles.at(0).vertices[1].x, 
-								triangles.at(0).vertices[1].y, 
-								triangles.at(0).vertices[1].z), 
-								vec3(0, 1, 0));
-
+    renderMode = WIREFRAME;
+    cout << "Starting in WIREFRAME mode." << endl;
+    // renderMode = RASTER;
+    // cout << "Starting in RASTER mode." << endl;
+    // renderMode = RAYTRACE;
+    // cout << "Starting in RAYTRACE mode." << endl;
     redrawCanvas();
     
     SDL_Event event;
@@ -163,7 +163,6 @@ void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical)
     cameraOrientation[0][2] = forward.x; 
     cameraOrientation[1][2] = forward.y; 
     cameraOrientation[2][2] = forward.z;
-	
 }
 
 void centerCameraPosition()
@@ -188,7 +187,6 @@ void centerCameraPosition()
             if (wz >= maxZ) maxZ = wz;
         }
     }
-    int cameraStepBack = 2;
     vertFoV = window.height / 2;
     cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
     cameraOrientation = mat3(vec3(1,0,0),vec3(0,1,0),vec3(0,0,1));
@@ -205,8 +203,8 @@ void drawModelTriangles(bool filled)
             cameraToVertex = cameraToVertex * cameraOrientation;
             
             // perspective projection
-            cameraToVertex.x = vertFoV * (cameraToVertex.x / cameraToVertex.z);
-            cameraToVertex.y = -vertFoV * (cameraToVertex.y / cameraToVertex.z);
+            cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
+            cameraToVertex.y = -focalLength * (cameraToVertex.y / cameraToVertex.z);
             if (cameraToVertex.z > cameraPosition.z && cameraToVertex.x < window.width && cameraToVertex.y < window.height) {
                 isVisible = false;
             } else {
@@ -292,8 +290,10 @@ RayTriangleIntersection getClosestIntersection(int x, int y)
 
             // If this intersection point is closer to the camera than the previous closest intersection
             if (closestIntersection.distanceFromCamera > distanceFromCamera) {
-                // Then the new intersection we have found is the new closest intersection
-                closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+                //if ((intersectionPoint.z > cameraPosition.z && intersectionPoint.x < window.width && intersectionPoint.y < window.height)) {
+                    // Then the new intersection we have found is the new closest intersection
+                    closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
+                //}
             }
         }
     }
@@ -1017,9 +1017,11 @@ bool loadObjFile(string filepath)
 
     if (file.is_open()) {
         string line;
-        char delim = ' ';
+		char delim = ' ';
         while (getline(file, line)) {
-            //cout << line.c_str();
+			
+            cout << line << endl;
+			
             string *tokens = split(line, delim);
             /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
             for (int i=0; i<numberOfTokens; i++){
@@ -1036,16 +1038,21 @@ bool loadObjFile(string filepath)
                 colorName = tokens[1];
             }
             
-            // v or vt line
-            else if (v.compare(tokens[0]) == 0 || vt.compare(tokens[0]) == 0){
+            // v line
+            else if (v.compare(tokens[0]) == 0){
                 float v1 = stof(tokens[1]);
                 float v2 = stof(tokens[2]);
                 float v3 = stof(tokens[3]);
                 vec3 vertex = vec3(v1, v2, v3);
-                if (v.compare(tokens[0]) == 0)
-                    vertices.push_back(vertex);
-                else
-                    textureVertices.push_back(vertex);
+                vertices.push_back(vertex);
+            }
+			
+			// vt line 
+			else if (vt.compare(tokens[0]) == 0){
+                float v1 = stof(tokens[1]);
+                float v2 = stof(tokens[2]);
+                vec2 vertex = vec2(v1, v2);
+                textureVertices.push_back(vertex);
             }
             
             // f line
@@ -1063,7 +1070,7 @@ bool loadObjFile(string filepath)
                     
                     if (faceValues[1].compare("") != 0) {
                         int textureIndex = (stoi(faceValues[1])) - 1; // question mark
-                        cout << "tex num" << textureIndex << endl;
+                        cout << "tex num " << textureIndex << endl;
                         vertexTextureIndexes.push_back({vertexIndex, textureIndex});
                         
                     }
@@ -1076,7 +1083,7 @@ bool loadObjFile(string filepath)
                     //cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
                 //}
                 
-                Colour colour = RED;
+                Colour colour(rand() % 255, rand() % 255, rand() % 255);
                 
                 if ((int)palette.size() > 0){
                 
