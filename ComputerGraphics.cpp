@@ -165,6 +165,8 @@ void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical)
     cameraOrientation[2][2] = forward.z;
 }
 
+
+float yWorldCenter;
 void centerCameraPosition()
 {
     float minX = triangles.at(0).vertices[0].x;
@@ -190,6 +192,7 @@ void centerCameraPosition()
     vertFoV = window.height / 2;
     cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
     cameraOrientation = mat3(vec3(1,0,0),vec3(0,1,0),vec3(0,0,1));
+	yWorldCenter = (maxY + minY)/2;
 }
 
 void drawModelTriangles(bool filled)
@@ -327,7 +330,8 @@ void raytraceCanvas()
     lightBulb.y = (5.219334 + 5.218497) / 2;
     lightBulb.z = (-2.517968 +-3.567968) / 2;
 	
-	// lookAt(cameraPosition, lightBulb, vec3(0, 1, 0)); (this is similar to orbit effect)
+	// orbit feature
+	// lookAt(cameraPosition, vec3(lightBulb.x, yWorldCenter, lightBulb.z), vec3(0, 1, 0)); //(this is similar to orbit effect)
     
     cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
     
@@ -354,8 +358,7 @@ void raytraceCanvas()
             drawPixel(x, y, colour.toPackedInt());
         }
     }
-	
-	lookAt(cameraPosition, lightBulb, vec3(0, 1, 0));
+
     cout << "[CAM POS] " << to_string(cameraPosition) << endl;
     cout << "[CAM ORIENTATION] " << to_string(cameraOrientation);
 }
