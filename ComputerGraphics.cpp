@@ -19,7 +19,7 @@ void handleEvent(SDL_Event event);
 bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
 void centerCameraPosition();
-RayTriangleIntersection getClosestIntersection(int x, int y);
+RayTriangleIntersection getClosestIntersection(vec3 startPoint, vec3 ray);
 void drawModelTriangles(bool fill);
 void renderWireframeCanvas();
 void rasteriseCanvas();
@@ -85,6 +85,33 @@ vec3 cameraPosition;
 mat3 cameraOrientation;
 PixelMap texture;
 
+class LightSource
+{
+    public:
+        vec3 position;
+        float intensity;
+        
+        LightSource()
+        {
+            position = vec3(0,0,0);
+            intensity = 0;
+        }
+        
+        LightSource(vec3 pos)
+        {
+            position = pos;
+            intensity = 0;
+        }
+        
+        LightSource(vec3 pos, float lightIntensity)
+        {
+            position = pos;
+            intensity = lightIntensity;
+        }
+};
+
+LightSource globalLight(vec3(0,0,0),0);
+
 enum renderModes {
     WIREFRAME,
     RASTER,
@@ -126,6 +153,7 @@ int main(int argc, char* argv[])
     path = cornellBoxPath;
     loadMtlFile(cornellBoxMtlPath);
     loadObjFile(cornellBoxObjPath);
+    globalLight = LightSource(vec3(-0.234011, 5.2129155,-3.042968), 200); // pos: white light in box
     /// CORNELL BOX SETTINGS ↑↑↑
     
     /// LOGO SETTINGS ↓↓↓
@@ -133,6 +161,7 @@ int main(int argc, char* argv[])
     // path = hackspaceLogoPath;
     // loadMtlFile(hackspaceLogoMtlPath);
     // loadObjFile(hackspaceLogoObjPath);
+    // globalLight = LightSource(vec3(2.820000, 2.665000, 3.000000), 120); // pos: to the right in front
     /// LOGO SETTINGS ↑↑↑
 
     centerCameraPosition();
@@ -215,7 +244,7 @@ void drawModelTriangles(bool fill)
             // calculate window coordinates and scale
             //int xPos = round((window.width/2) - (cameraToVertex.x));
             //int yPos = round((window.height/2) - (cameraToVertex.y));
-            int xPos = -cameraToVertex.x + (window.width  / 2);
+            int xPos = -cameraToVertex.x + (window.width / 2);
             int yPos = cameraToVertex.y + (window.height / 2);
             CanvasPoint c(xPos, yPos, triangle.texturePoints[i]);
             
@@ -231,87 +260,13 @@ void drawModelTriangles(bool fill)
                 // If there's no texture, just fill the triangle with its colour
                 drawFilledTriangle(t);
             } else {
-                // drawFilledTriangle(t, RED);
+                drawFilledTriangle(t, RED);
                 drawFilledTriangle(t, texture);
             }
         } else { 
             drawStrokedTriangle(t);
         }
     }
-}
-
-RayTriangleIntersection getClosestIntersection(int x, int y)
-{
-    RayTriangleIntersection closestIntersection;
-    closestIntersection.distanceFromCamera = INFINITY;
-
-    // A position along a ray can be represented as:
-    // [1]      position = startPoint + scalar * direction
-    //          r        = s          + t      * d
-    
-    // Our startPoint is the camera's position, the global variable vec3 cameraPosition
-    // Given a triangular plane with vertices p0, p1, p2
-    for (ModelTriangle triangle : triangles) {
-        // Point r which intersects this triangular plane is defined as: 
-        // [2]      r = p0 + u(p1 - p0) + v(p2 - p0)
-        // Simplify [2] by referring to the differences between points as edges
-        // [3]      r = p0 + ue0 + ve1
-        vec3 p0 = triangle.vertices[0];
-        vec3 p1 = triangle.vertices[1];
-        vec3 p2 = triangle.vertices[2];
-        vec3 e0 = p1 - p0;
-        vec3 e1 = p2 - p0;
-        
-        // Calculate the ray's direction using the camera's position and the (x,y) of the pixel the ray intersects
-        float xPos = ((window.width  / 2) - x);
-        float yPos = (y - (window.height / 2));
-        float zPos = focalLength;
-        vec3 rayDirection = normalize(cameraPosition - vec3(xPos, yPos, zPos)) * cameraOrientation;
-        
-        // Combining [3] with [1], we get:
-        // [4]      p0 + ue0 + ve1 = s + t * d
-        // Rearrange [4] to get:
-        // [5]      -t * d + ue0 + ve1 = s - p0
-        // Represent [5] in matrix form:
-        // [6]      [ -d.x e0.x e1.x ]   [ t ]   [ s.x - p0.x ]
-        //          [ -d.y e0.y e1.y ] • [ u ] = [ s.y - p0.y ]
-        //          [ -d.z e0.z e1.z ]   [ v ]   [ s.z - p0.z ]
-        //          ^ "DEMatrix"                 ^ "SPVector"
-        vec3 SPVector = cameraPosition - p0;
-        mat3 DEMatrix(-rayDirection, e0, e1);
-
-        // Rearrange [6] to get:
-        // [7]      [ t ]   [ -d.x e0.x e1.x ]^-1  [ s.x - p0.x ]
-        //          [ u ] = [ -d.y e0.y e1.y ]  •  [ s.y - p0.y ]
-        //          [ v ]   [ -d.z e0.z e1.z ]     [ s.z - p0.z ]    
-        vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
-        
-        // We have now calculated:
-        //       t = the distance along the ray
-        //       u = the u co-ordinate on the triangle's plane of the intersection point
-        //       v = the v co-ordinate on the triangle's plane of the intersection point
-        float distanceFromCamera = possibleSolution.x;
-        float u = possibleSolution.y;
-        float v = possibleSolution.z;
-
-        // Before continuing, we must check the constraints on u,v are met:
-        if (0.0f <= u && u <= 1.0f && 0.0f <= v && v <= 1.0f && (u + v) <= 1.0f) {
-            // From here, we will need to transpose these (u,v) co-ordinates into model space
-            // And then, like in rasterisation, from model space to canvas space
-            vec3 intersectionPoint = triangle.vertices[0] + u*e0 + v*e1;
-
-            // If this intersection point is closer to the camera than the previous closest intersection
-            if (closestIntersection.distanceFromCamera > distanceFromCamera) {
-                //if ((intersectionPoint.z > cameraPosition.z && intersectionPoint.x < window.width && intersectionPoint.y < window.height)) {
-                    // Then the new intersection we have found is the new closest intersection
-                    closestIntersection = RayTriangleIntersection(intersectionPoint, distanceFromCamera, triangle);
-                //}
-            }
-        }
-    }
-    
-    // After iterating over every triangle, we will now have found the intersection closest to the camera
-    return closestIntersection;
 }
 
 void renderWireframeCanvas()
@@ -326,96 +281,114 @@ void rasteriseCanvas()
 
 int applyShading(int v, float brightness)
 {
-    int x = (int) round(v * brightness);
-    if (x > 255) return 255;
-    if (x < 0) return 0;
-    return x;
+    v = round(v * brightness);
+    if (v < 0)   return 0;
+    if (v > 255) return 255;
+    return v;
 }
 
-class LightSource
+Colour shadeColour(Colour colour, float brightness)
 {
-    public:
-        vec3 position;
-        float intensity;
-        
-        LightSource()
-        {
-            position = vec3(0,0,0);
-            intensity = 0;
-        }
-        
-        LightSource(vec3 pos)
-        {
-            position = pos;
-            intensity = 0;
-        }
-        
-        LightSource(vec3 pos, float lightIntensity)
-        {
-            position = pos;
-            intensity = lightIntensity;
-        }
-};
-
-Colour getColourFromIntersection(RayTriangleIntersection intersection, LightSource light)
-{
-    Colour colour = BLACK;
-    vec3 lightBulb = light.position;
-    float intensity = light.intensity;
-    if (intersection.distanceFromCamera != INFINITY) {
-        // Diffuse lighting
-        float distanceFromLight = distance(lightBulb, intersection.intersectionPoint);
-
-        // Proximity
-        float proximity = 1 / (float)(4 * (float)pi<float>() * distanceFromLight * distanceFromLight);
-        
-        // Get the triangular plane and its vertices
-        ModelTriangle t = intersection.intersectedTriangle;
-        vec3 p0 = t.vertices[0];
-        vec3 p1 = t.vertices[1];
-        vec3 p2 = t.vertices[2];
-        
-        // Calculate normal
-        vec3 e0 = p1 - p0;
-        vec3 e1 = p2 - p0;
-        vec3 normal = glm::cross(e0, e1);
-
-        // Light a surface receives is directly proportional to the angle of incidence
-        vec3 pointToLight = lightBulb - intersection.intersectionPoint;
-        float angleOfIncidence = normalize(glm::dot(normal, normalize(pointToLight)));
-        
-        // Calculate the brightness
-        float brightness = intensity * proximity * angleOfIncidence;
-
-        // Ambient lighting
-        float lighting_floor = 0.4f;
-        brightness = std::max(lighting_floor, brightness);
-        
-        // Apply the shading
-        colour = intersection.intersectedTriangle.colour;
-        colour.red = applyShading(colour.red, brightness);
-        colour.green = applyShading(colour.green, brightness);
-        colour.blue = applyShading(colour.blue, brightness);
-    }
+    colour.red   = applyShading(colour.red,   brightness);
+    colour.green = applyShading(colour.green, brightness);
+    colour.blue  = applyShading(colour.blue,  brightness);
     return colour;
+}
+
+float calcPointBrightness(RayTriangleIntersection intersection)
+{
+    vec3 point = intersection.intersectionPoint;
+    // Diffuse lighting
+    float distanceFromLight = distance(globalLight.position, point);
+
+    // Proximity
+    float proximity = 1 / (float)(4 * (float)pi<float>() * distanceFromLight * distanceFromLight);
+    
+    // Get the triangular plane and its vertices
+    ModelTriangle t = intersection.intersectedTriangle;
+    vec3 p0 = t.vertices[0];
+    vec3 p1 = t.vertices[1];
+    vec3 p2 = t.vertices[2];
+    
+    // Calculate normal
+    vec3 e0 = p1 - p0;
+    vec3 e1 = p2 - p0;
+    vec3 normal = glm::cross(e0, e1);
+
+    // Light a surface receives is directly proportional to the angle of incidence
+    vec3 pointToLight = globalLight.position - point;
+    float angleOfIncidence = normalize(glm::dot(normal, normalize(pointToLight)));
+    
+    // Calculate the brightness
+    float brightness = globalLight.intensity * proximity * angleOfIncidence;
+
+    // Ambient lighting
+    float lighting_floor = 0.2f;
+    brightness = std::max(lighting_floor, brightness);
+
+    return brightness;
+}
+
+bool onPlane(float u, float v)
+{
+    return (0.0f <= u && u <= 1.0f && 0.0f <= v && v <= 1.0f && (u + v) <= 1.0f);
+}
+
+RayTriangleIntersection getClosestIntersection(vec3 startPoint, vec3 ray)
+{
+    RayTriangleIntersection closestIntersection;
+    closestIntersection.distanceFromRayOrigin = std::numeric_limits<float>::infinity();
+
+    // Iterate over every triangle in the world to find the point closest from the ray's starting point
+    for (ModelTriangle triangle : triangles){
+        // position (r) = startPoint + scalar (t) * direction (d)
+        // r = p0 + u(p1 - p0) + v(p2 - p0)
+        // Therefore p0 + u(p1 - p0) + v(p2 - p0) = s + t * d
+        // Rearrange and solve for t, u and v:
+        vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
+        vec3 e1 = triangle.vertices[2] - triangle.vertices[0];    
+        vec3 SPVector = startPoint - triangle.vertices[0];
+        mat3 DEMatrix(-normalize(ray), e0, e1);
+        vec3 tuv = glm::inverse(DEMatrix) * SPVector;
+        
+        float t = tuv.x; // distance from the ray's origin
+        float u = tuv.y; // triangular plane u co-ord
+        float v = tuv.z; // triangular plane z co-ord
+
+        if (onPlane(u, v)) {
+            // Transpose (u,v) co-ordinates to world-space
+            vec3 intersection = triangle.vertices[0] + (u * e0) + (v * e1);
+
+            // If the intersection point is closer to the camera than the previous closest intersection
+            if (closestIntersection.distanceFromRayOrigin > t) {
+                // Then update the closest intersection stored
+                closestIntersection = RayTriangleIntersection(intersection, t, triangle);
+            }
+        }
+    }
+    
+    // After iterating over every triangle, we will now have found the intersection closest to the camera
+    return closestIntersection;
 }
 
 void raytraceCanvas()
 {
-    // Iterate over every pixel in the canvas
+    window.clearPixels();
+    // Cast rays from the camera such that each pixel is intersected
     for (int y = 0; y < window.height; y++) {
         for (int x = 0; x < window.width; x++) {
-            // Shoot a ray from the camera such that it intersects this pixel of the canvas
-            RayTriangleIntersection closest = getClosestIntersection(x, y);
+            // Calculate pixel's world-space pos
+            vec3 pixelPosition = vec3((window.width  / 2) - x, y - (window.height / 2), focalLength);
             
-            // Position our proximity light source at the centre of the ceiling light vertices
-            LightSource lightBulb(vec3(((-0.884011 +  0.415989) / 2),
-                                       (( 5.219334 +  5.218497) / 2) - 0.4,
-                                       ((-2.517968 + -3.567968) / 2)),
-                                  200); // intensity
+            // Cast ray from camera through pixel
+            vec3 ray = (cameraPosition - pixelPosition) * cameraOrientation;
+            RayTriangleIntersection intersection = getClosestIntersection(cameraPosition, ray);
 
-            Colour colour = getColourFromIntersection(closest, lightBulb);            
-            drawPixel(x, y, colour.toPackedInt());
+            if (intersection.distanceFromRayOrigin != std::numeric_limits<float>::infinity()) {
+                float brightness = calcPointBrightness(intersection);
+                Colour c = shadeColour(intersection.intersectedTriangle.colour, brightness);
+                drawPixel(x, y, c.toPackedInt());
+            }
         }
     }
 }
