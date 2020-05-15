@@ -86,8 +86,8 @@ float vertFoV;
 float focalLength = 480;
 vec3 cameraPosition;
 mat3 cameraOrientation;
-float cameraSpeed = 2;
-float turnSpeedAngle = 45; // degrees
+float cameraSpeed = 1;
+float turnSpeedAngle = 30; // degrees
 
 enum renderModes {
     WIREFRAME,
@@ -120,6 +120,7 @@ int WinMain(int argc, char* argv[])
     return 0;
 }
 
+
 int main(int argc, char* argv[])
 {
     loadMtlFile(cornellBoxMtlPath);
@@ -129,11 +130,12 @@ int main(int argc, char* argv[])
 
     centerCameraPosition();
     renderMode = RAYTRACE;
-    cout << "Starting in WIREFRAME mode." << endl;
+    //cout << "Starting in WIREFRAME mode." << endl;
     // renderMode = RASTER;
     // cout << "Starting in RASTER mode." << endl;
     // renderMode = RAYTRACE;
     // cout << "Starting in RAYTRACE mode." << endl;
+	
     redrawCanvas();
     
     SDL_Event event;
@@ -331,9 +333,9 @@ void raytraceCanvas()
     lightBulb.z = (-2.517968 +-3.567968) / 2;
 	
 	// orbit feature
-	// lookAt(cameraPosition, vec3(lightBulb.x, yWorldCenter, lightBulb.z), vec3(0, 1, 0)); //(this is similar to orbit effect)
+	lookAt(cameraPosition, vec3(lightBulb.x, yWorldCenter, lightBulb.z), vec3(0, 1, 0)); //(this is similar to orbit effect)
     
-    cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
+    //cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
     
     // Iterate over every pixel in the canvas
     for (int y = 0; y < window.height; y++) {
@@ -359,12 +361,12 @@ void raytraceCanvas()
         }
     }
 
-    cout << "[CAM POS] " << to_string(cameraPosition) << endl;
-    cout << "[CAM ORIENTATION] " << to_string(cameraOrientation);
+    //cout << "[CAM POS] " << to_string(cameraPosition) << endl;
+    //cout << "[CAM ORIENTATION] " << to_string(cameraOrientation);
 }
 
 void update()
-{
+{	
     // Function for performing animation (shifting artifacts or moving the camera)
 }
 
@@ -410,28 +412,71 @@ void spinCamera(float angleDegrees)
     cout << "Spinning camera " << angleDegrees << " degrees." << endl;
 }
 
+vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
+vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
+vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
+
+void left(){vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
+			cameraPosition -= cameraSpeed  * rightCO;
+            redrawCanvas();
+			window.renderFrame();}
+void right(){vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
+			vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
+			vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
+			cameraPosition += cameraSpeed * (rightCO/14);
+			cameraPosition -= cameraSpeed * (forwardCO*0.02857);
+			cameraPosition -= cameraSpeed * (upCO*0.03571);
+            redrawCanvas();
+			window.renderFrame();}
+void up(){vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
+			cameraPosition += cameraSpeed * upCO;
+			redrawCanvas();
+			window.renderFrame();}
+void down(){vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
+			cameraPosition -= cameraSpeed * upCO;
+            redrawCanvas();
+			window.renderFrame();}
+void wheelUp(){vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
+			cameraPosition -= cameraSpeed * forwardCO;
+            redrawCanvas();
+			window.renderFrame();}
+void wheelDown(){vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
+			cameraPosition += cameraSpeed * forwardCO;
+			redrawCanvas();
+			window.renderFrame();}
+			
+void cornellBoxAnim(){
+	cout << "animation process started..." << endl;
+	cout << "gathering starting position..." << endl;
+
+	for(int i=0; i<5; i++) {left(); cout<<i+1<<" / 15" <<endl;}
+	for(int i=0; i<5; i++) {wheelDown(); cout<<i+6<<" / 15" <<endl;}
+	for(int i=0; i<5; i++) {up(); cout<<i+11<<" / 15" <<endl;}
+	cout << "frame generation started..." << endl;
+	for(int i=0; i<210; i++) {right(); saveImage(); cout<<i+1<<" / 196" <<endl;}
+	
+	
+	
+}
+
 void handleEvent(SDL_Event event)
 {
-	vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
-	vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
-	vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
+	//vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
+	//vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
+	//vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
 	
     if(event.type == SDL_KEYDOWN) {
         if(event.key.keysym.sym == SDLK_LEFT) {
-            cameraPosition -= cameraSpeed  * rightCO;
-            redrawCanvas();
+            left();
             cout << "LEFT: Camera shifted left." << endl;
         } else if(event.key.keysym.sym == SDLK_RIGHT) {
-            cameraPosition += cameraSpeed  * rightCO;
-            redrawCanvas();
+            right();
             cout << "RIGHT: Camera shifted right." << endl;
         } else if(event.key.keysym.sym == SDLK_UP) {
-            cameraPosition += cameraSpeed * upCO;
-            redrawCanvas();
+            up();
             cout << "UP: Camera shifted up." << endl;
         } else if(event.key.keysym.sym == SDLK_DOWN) {
-            cameraPosition -= cameraSpeed * upCO;
-            redrawCanvas();
+            down();
             cout << "DOWN: Camera shifted down." << endl;
         } else if(event.key.keysym.sym == SDLK_f) {
             changeRenderMode(WIREFRAME);
@@ -453,7 +498,8 @@ void handleEvent(SDL_Event event)
             tiltCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_s) {
             cout << "s KEY: ";
-            tiltCamera(-turnSpeedAngle);
+            //tiltCamera(-turnSpeedAngle);
+			saveImage();
         } else if(event.key.keysym.sym == SDLK_q) {
             cout << "q KEY: ";
             spinCamera(turnSpeedAngle);
@@ -467,17 +513,16 @@ void handleEvent(SDL_Event event)
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
         cout << "MOUSE CLICKED" << endl;
+		cornellBoxAnim();
     } else if(event.type == SDL_MOUSEWHEEL) {
         if(event.wheel.y > 0) // scroll up
         {
-            cameraPosition -= cameraSpeed * forwardCO;
-            redrawCanvas();
+            wheelUp();
             cout << "SCROLL UP: Camera shifted inwards." << endl;
         }
         else if(event.wheel.y < 0) // scroll down
         {
-            cameraPosition += cameraSpeed * forwardCO;
-            redrawCanvas();
+            wheelDown();
             cout << "SCROLL DOWN: Camera shifted outwards." << endl;
         }
     }
@@ -974,6 +1019,7 @@ void saveImage()
     saveImage(window.width, window.height);
 }
 
+int frameCounter = 1;
 void saveImage(int width, int height)
 {
     PixelMap img;
@@ -987,8 +1033,8 @@ void saveImage(int width, int height)
             img.pixels.push_back(window.getPixelColour(column, row));
         }
     }
-    
-    ofstream myfile ("output.ppm", ios::binary);
+    string frameName = string("output") + to_string(frameCounter) + ".ppm";
+    ofstream myfile (frameName, ios::binary);
     if (myfile.is_open()) {
         myfile << "P6\n";
         myfile << img.width << " " << img.height << endl;
@@ -1004,6 +1050,7 @@ void saveImage(int width, int height)
     }
     
     cout << "SAVED WINDOW AS PPM IMAGE FILE \"output.ppm\"" << endl;
+	frameCounter++;
 }
 
 
