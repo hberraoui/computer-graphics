@@ -206,15 +206,17 @@ void drawModelTriangles(bool fill)
         CanvasPoint displayVertices[3];
         for (int i = 0; i < 3; i++) {
             vec3 cameraToVertex = triangle.vertices[i] - cameraPosition;
-            cameraToVertex = cameraToVertex * cameraOrientation;
+            cameraToVertex = cameraOrientation * cameraToVertex;
             
             // perspective projection
             cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
-            cameraToVertex.y = -focalLength * (cameraToVertex.y / cameraToVertex.z);
+            cameraToVertex.y = focalLength * (cameraToVertex.y / cameraToVertex.z);
 
             // calculate window coordinates and scale
-            int xPos = round((window.width/2) - (cameraToVertex.x));
-            int yPos = round((window.height/2) - (cameraToVertex.y));
+            //int xPos = round((window.width/2) - (cameraToVertex.x));
+            //int yPos = round((window.height/2) - (cameraToVertex.y));
+            int xPos = -cameraToVertex.x + (window.width  / 2);
+            int yPos = cameraToVertex.y + (window.height / 2);
             CanvasPoint c(xPos, yPos, triangle.texturePoints[i]);
             
             displayVertices[i] = c;
