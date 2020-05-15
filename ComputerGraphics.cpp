@@ -1132,3 +1132,199 @@ bool loadMtlFile(string filepath){
     }
     return true;
 }
+
+
+
+
+
+/* ======================== ANTI-ALIASING CHANGES ===========================
+
+
+// replace drawLine with drawAALine
+
+void drawStrokedTriangle(CanvasTriangle triangle, Colour colour)
+{
+	
+    drawAALine(triangle.vertices[0], triangle.vertices[1], colour);
+	drawAALine(triangle.vertices[0], triangle.vertices[2], colour);
+    drawAALine(triangle.vertices[1], triangle.vertices[2], colour);
+}
+
+
+// ------------ Some math functions ----
+  
+//returns integer part of a floating point number 
+int iPartOfNumber(float x) 
+{ 
+    return (int)x; 
+} 
+  
+//rounds off a number 
+int roundNumber(float x) 
+{ 
+    return iPartOfNumber(x + 0.5) ; 
+} 
+  
+//returns fractional part of a number 
+float fPartOfNumber(float x) 
+{ 
+    if (x>0) return x - iPartOfNumber(x); 
+    else return x - (iPartOfNumber(x)+1); 
+  
+} 
+  
+//returns 1 - fractional part of number 
+float rfPartOfNumber(float x) 
+{ 
+    return 1 - fPartOfNumber(x); 
+} 
+
+
+// min and max of 3 floats 
+
+float max(float a, float b, float c) {
+   return ((a > b)? (a > c ? a : c) : (b > c ? b : c));
+}
+float min(float a, float b, float c) {
+   return ((a < b)? (a < c ? a : c) : (b < c ? b : c));
+}
+
+
+// new drawLine below
+// the following code goes through the correct pixels of a line
+// but then still draws it with full brightness 
+// which has the BOLD LINE effect
+
+void drawAALine(CanvasPoint from, CanvasPoint to, Colour colour) 
+{ 
+	
+	
+	// get RGB color to HSL
+	// get the L value and reduce it by brightness percentage
+	// recalculate S and L values of HSL
+	// construct new RGB from updated HSL
+	
+	
+	
+	
+	//float r = colour.red / 255;
+	//float g = colour.green / 255;
+	//float b = colour.blue / 255;
+	//float minrgb = min(r, g, b);
+	//float maxrgb = max(r, g, b);
+	//float lumi = (minrgb + maxrgb)/2;
+
+
+	int x0 = from.x;
+	int y0 = from.y;
+	int x1 = to.x; 
+	int y1 = to.y;
+	
+    bool steep = abs(y1 - y0) > abs(x1 - x0); 
+	
+    if (steep) 
+    { 
+	// swap values
+		int tmp = x0;
+		x0 = y0;
+		y0 = tmp;
+		
+		tmp = x1;
+		x1 = y1;
+		y1 = tmp;
+    } 
+	
+    if (x0 > x1) 
+    { 	
+		// swap values
+		int tmp = x0;
+		x0 = x1;
+		x1 = tmp;
+		tmp = y0;
+		y0 = y1;
+		y1 = tmp;
+    } 
+  
+
+    float dx = x1-x0; 
+    float dy = y1-y0; 
+    float gradient = dy/dx; 
+    if (dx == 0.0) 
+        gradient = 1; 
+  
+    int xpxl1 = x0; 
+    int xpxl2 = x1; 
+    float intersectY = y0; 
+	//float brightness;
+  
+    if (steep) 
+    { 
+        int x; 
+        for (x = xpxl1 ; x <=xpxl2 ; x++) 
+        { 	
+            
+			CanvasPoint drawp1 = CanvasPoint(iPartOfNumber(intersectY), x);
+			//brightness = fPartOfNumber(intersectY);	
+			//cHSV.z *= brightness;
+			
+			
+			
+			
+            drawPixel(drawp1.x, drawp1.y, colour.toPackedInt()); 
+			
+			CanvasPoint drawp2 = CanvasPoint(iPartOfNumber(intersectY)-1, x);
+			//brightness = fPartOfNumber(intersectY);
+			//cHSV.z *= brightness;
+			
+			
+            drawPixel(drawp2.x, drawp2.y, colour.toPackedInt()); 
+			
+			
+            intersectY += gradient; 
+        } 
+    } 
+    else
+    { 
+        int x; 
+        for (x = xpxl1 ; x <=xpxl2 ; x++) 
+        { 
+			CanvasPoint drawp1 = CanvasPoint(x, iPartOfNumber(intersectY));
+			//brightness = rfPartOfNumber(intersectY);
+			//cHSL.z *= brightness;
+			
+			
+            drawPixel(drawp1.x, drawp1.y, colour.toPackedInt());
+			
+			
+			CanvasPoint drawp2 = CanvasPoint(x, iPartOfNumber(intersectY)-1);
+			//brightness = fPartOfNumber(intersectY);
+			//cHSL.z *= brightness;			
+			
+			
+            drawPixel(drawp2.x, drawp2.y, colour.toPackedInt());
+						  
+            intersectY += gradient; 
+        } 
+    } 
+	
+} 
+
+// -------------------------------------------------------------------------------------------
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
