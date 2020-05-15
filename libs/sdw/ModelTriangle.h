@@ -20,7 +20,7 @@ class ModelTriangle
       colour = trigColour;
     }
 	
-	void sortVerticesMT()
+	void sortVertices()
     {
       int n = sizeof(vertices) / sizeof(vertices[0]);
       bool swapped;
