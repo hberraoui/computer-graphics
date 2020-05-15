@@ -22,9 +22,11 @@ LINKER_OPTIONS =
 SDW_COMPILER_FLAGS := -I./libs/sdw
 GLM_COMPILER_FLAGS := -I./libs/glm
 # If you have a manual install of SDL, you might not have sdl2-config. Compiler flags should be something like: -I/usr/local/include/SDL2 -D_THREAD_SAFE
-SDL_COMPILER_FLAGS := -I/include/SDL2 -D_THREAD_SAFE
+# SDL_COMPILER_FLAGS := -I/include/SDL2 -D_THREAD_SAFE
+SDL_COMPILER_FLAGS := -IC:/Dev/SDL_2.0.10_32bit/include/SDL2 -D_THREAD_SAFE
 # If you have a manual install of SDL, you might not have sdl2-config. Linker flags should be something like: -L/usr/local/lib -lSDL2
-SDL_LINKER_FLAGS := -L/lib -lSDL2
+# SDL_LINKER_FLAGS := -L/lib -lSDL2
+SDL_LINKER_FLAGS := -LC:/Dev/SDL_2.0.10_32bit/lib -lSDL2
 SDW_LINKER_FLAGS := $(WINDOW_OBJECT)
 
 default: diagnostic

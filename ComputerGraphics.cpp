@@ -13,20 +13,48 @@
 using namespace std;
 using namespace glm;
 
+// CONSTANTS
+
+#define WIDTH 640    
+#define HEIGHT 480
+
+
+// ===================== FUNCTIONS ========================================
+
 void draw();
 void update();
 void handleEvent(SDL_Event event);
+
+// LOADING
 bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
-void centerCameraPosition();
-RayTriangleIntersection getClosestIntersection(vec3 startPoint, vec3 ray);
+PixelMap loadPixelMap(string fn);
+
+// DRAWING
 void drawModelTriangles(bool fill);
+bool drawPixelMap(PixelMap img, int startX, int startY);
+bool drawPixelMap(PixelMap img);
+void drawFilledTriangle(CanvasTriangle t, PixelMap img);
+void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
+void drawFilledTriangle(CanvasTriangle triangle);
+void fillFlatTriangle(CanvasTriangle t, PixelMap img);
+void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
+void drawStrokedTriangle(CanvasTriangle triangle);
+void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
+void drawLine(TexturePoint from, TexturePoint to, Colour colour);
+void drawPixel(int x, int y, uint32_t pixel);
+void drawImage();
+
+
+// CANVAS MODE
 void renderWireframeCanvas();
 void rasteriseCanvas();
 void raytraceCanvas();
 void redrawCanvas();
 void changeRenderMode(int mode);
-void transformVertexCoordinatesToCanvas();
+
+
+// INTERPOLATION
 float interpolationStep(float start, float from, float to, int steps);
 std::vector<float> interpolate(float from, float to, int steps);
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps);
@@ -35,31 +63,24 @@ int calcSteps(float fromX, float fromY, float toX, float toY);
 int calcSteps(CanvasPoint from, CanvasPoint to);
 int calcSteps(vec3 from, vec3 to);
 float getXFromY(float y, CanvasPoint from, CanvasPoint to);
-bool drawPixelMap(PixelMap img, int startX, int startY);
-bool drawPixelMap(PixelMap img);
-PixelMap loadPixelMap(string fn);
+
+
+// SAVE
 void saveImage(string fn);
-void textureMappingTask();
-void drawImage();
-void drawRandomFilledTriangle();
-void drawFilledTriangle(CanvasTriangle t, PixelMap img);
-void drawFilledTriangle(CanvasTriangle triangle, Colour colour);
-void drawFilledTriangle(CanvasTriangle triangle);
-void drawRandomStrokedTriangle();
-void drawStrokedTriangle(CanvasTriangle triangle, Colour colour);
-void drawStrokedTriangle(CanvasTriangle triangle);
-void drawLine(CanvasPoint from, CanvasPoint to, Colour colour);
-void drawLine(TexturePoint from, TexturePoint to, Colour colour);
-void drawPixel(int x, int y, uint32_t pixel);
+
+
+// MATHS
 uint32_t vec3ToPackedInt(vec3 pixel);
 vec3 packedIntToVec3(uint32_t colour);
-void rainbowInterpolation();
-void greyscaleInterpolation();
-void drawRedNoise();
+void centerCameraPosition();
+float calcPointBrightness(RayTriangleIntersection intersection);
 void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical);
+void transformVertexCoordinatesToCanvas();
+RayTriangleIntersection getClosestIntersection(vec3 startPoint, vec3 ray);
+Colour shadeColour(Colour colour, float brightness);
 
-#define WIDTH 640    
-#define HEIGHT 480
+
+// ==================== VARIABLES ======================================
 
 string cornellBoxPath = "./cornell-box/";
 string cornellBoxMtlPath = cornellBoxPath + "cornell-box.mtl";
@@ -70,21 +91,24 @@ string hackspaceLogoObjPath = hackspaceLogoPath + "logo.obj";
 string path; // set in main()
 
 DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
+
 vector<ModelTriangle> triangles;
 vector<CanvasTriangle> displayTriangles;
 vector<vec3> vertices;
 vector<Colour> palette;
 vector<TexturePoint> texturePoints;
+vec3 cameraPosition;
+mat3 cameraOrientation;
+PixelMap texture;
 
+// INITIAL SETTING
 vec3 modelScale = vec3(1,1,1);
 float focalLength = window.height;
 float cameraSpeed = 2;
 float turnSpeedAngle = 45; // degrees
 int frameNumber = 0; // keep track of how many frames we have saved
-vec3 cameraPosition;
-mat3 cameraOrientation;
-PixelMap texture;
 
+// LIGHT
 class LightSource
 {
     public:
@@ -112,13 +136,25 @@ class LightSource
 
 LightSource globalLight(vec3(0,0,0),0);
 
+
+// RENDER
+
 enum renderModes {
     WIREFRAME,
     RASTER,
     RAYTRACE
 };
-
 int renderMode;
+
+
+
+// WINDOWS
+int WinMain(int argc, char* argv[])
+{
+    main(argc, argv);
+    return 0;
+}
+
 
 void redrawCanvas()
 {
@@ -135,33 +171,28 @@ void redrawCanvas()
             break;
     }
     
-    cout << "[CAM POS] " << to_string(cameraPosition) << endl;
-    cout << "[CAM ORIENTATION] " << to_string(cameraOrientation) << endl;
+    //cout << "[CAM POS] " << to_string(cameraPosition) << endl;
+    //cout << "[CAM ORIENTATION] " << to_string(cameraOrientation) << endl;
 }
 
-// For the sake of Windows
-int WinMain(int argc, char* argv[])
-{
-    main(argc, argv);
-    return 0;
-}
 
+// ======= MAIN ================
 int main(int argc, char* argv[])
 {
     /// CORNELL BOX SETTINGS ↓↓↓
-    modelScale = vec3(1, 1, 1);
-    path = cornellBoxPath;
-    loadMtlFile(cornellBoxMtlPath);
-    loadObjFile(cornellBoxObjPath);
-    globalLight = LightSource(vec3(-0.234011, 5.2129155,-3.042968), 200); // pos: white light in box
+    //modelScale = vec3(1, 1, 1);
+    //path = cornellBoxPath;
+    //loadMtlFile(cornellBoxMtlPath);
+    //loadObjFile(cornellBoxObjPath);
+    //globalLight = LightSource(vec3(-0.234011, 5.2129155,-3.042968), 200); // pos: white light in box
     /// CORNELL BOX SETTINGS ↑↑↑
     
     /// LOGO SETTINGS ↓↓↓
-    // modelScale = vec3(0.01, 0.01, 0.01);
-    // path = hackspaceLogoPath;
-    // loadMtlFile(hackspaceLogoMtlPath);
-    // loadObjFile(hackspaceLogoObjPath);
-    // globalLight = LightSource(vec3(2.820000, 2.665000, 3.000000), 120); // pos: to the right in front
+    modelScale = vec3(0.01, 0.01, 0.01);
+    path = hackspaceLogoPath;
+    loadMtlFile(hackspaceLogoMtlPath);
+    loadObjFile(hackspaceLogoObjPath);
+    globalLight = LightSource(vec3(2.820000, 2.665000, 3.000000), 120); // pos: to the right in front
     /// LOGO SETTINGS ↑↑↑
 
     centerCameraPosition();
@@ -183,6 +214,52 @@ int main(int argc, char* argv[])
         window.renderFrame();
     }
 }
+
+
+
+// ============================= RENDER MODE ===============================
+
+void changeRenderMode(int mode)
+{
+    renderMode = mode;
+    redrawCanvas();
+}
+
+void renderWireframeCanvas()
+{
+    drawModelTriangles(false);
+}
+
+void rasteriseCanvas()
+{
+    drawModelTriangles(true);
+}
+
+void raytraceCanvas()
+{
+    window.clearPixels();
+    // Cast rays from the camera such that each pixel is intersected
+    for (int y = 0; y < window.height; y++) {
+        for (int x = 0; x < window.width; x++) {
+            // Calculate pixel's world-space pos
+            vec3 pixelPosition = vec3((window.width  / 2) - x, y - (window.height / 2), focalLength);
+            
+            // Cast ray from camera through pixel
+            vec3 ray = (cameraPosition - pixelPosition) * cameraOrientation;
+            RayTriangleIntersection intersection = getClosestIntersection(cameraPosition, ray);
+
+            if (intersection.distanceFromRayOrigin != std::numeric_limits<float>::infinity()) {
+                float brightness = calcPointBrightness(intersection);
+                Colour c = shadeColour(intersection.intersectedTriangle.colour, brightness);
+                drawPixel(x, y, c.toPackedInt());
+            }
+        }
+    }
+}
+
+
+
+// ================================ MATHS ======================================
 
 void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical)
 {
@@ -226,57 +303,6 @@ void centerCameraPosition()
     int cameraStepBack = 5;
     cameraPosition = {(maxX + minX)/2, (maxY + minY)/2, cameraStepBack};
     cameraOrientation = mat3(vec3(1,0,0),vec3(0,1,0),vec3(0,0,1));
-}
-
-void drawModelTriangles(bool fill)
-{
-    window.clearPixels();
-    for (ModelTriangle triangle : triangles) {
-        CanvasPoint displayVertices[3];
-        for (int i = 0; i < 3; i++) {
-            vec3 cameraToVertex = triangle.vertices[i] - cameraPosition;
-            cameraToVertex = cameraOrientation * cameraToVertex;
-            
-            // perspective projection
-            cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
-            cameraToVertex.y = focalLength * (cameraToVertex.y / cameraToVertex.z);
-
-            // calculate window coordinates and scale
-            //int xPos = round((window.width/2) - (cameraToVertex.x));
-            //int yPos = round((window.height/2) - (cameraToVertex.y));
-            int xPos = -cameraToVertex.x + (window.width / 2);
-            int yPos = cameraToVertex.y + (window.height / 2);
-            CanvasPoint c(xPos, yPos, triangle.texturePoints[i]);
-            
-            displayVertices[i] = c;
-        }
-        
-        CanvasTriangle t(displayVertices[0],
-                         displayVertices[1], 
-                         displayVertices[2],
-                         triangle.colour);
-        if (fill) {
-            if (t.vertices[0].texturePoint.x == -1) {
-                // If there's no texture, just fill the triangle with its colour
-                drawFilledTriangle(t);
-            } else {
-                drawFilledTriangle(t, RED);
-                drawFilledTriangle(t, texture);
-            }
-        } else { 
-            drawStrokedTriangle(t);
-        }
-    }
-}
-
-void renderWireframeCanvas()
-{
-    drawModelTriangles(false);
-}
-
-void rasteriseCanvas()
-{
-    drawModelTriangles(true);
 }
 
 int applyShading(int v, float brightness)
@@ -371,38 +397,14 @@ RayTriangleIntersection getClosestIntersection(vec3 startPoint, vec3 ray)
     return closestIntersection;
 }
 
-void raytraceCanvas()
-{
-    window.clearPixels();
-    // Cast rays from the camera such that each pixel is intersected
-    for (int y = 0; y < window.height; y++) {
-        for (int x = 0; x < window.width; x++) {
-            // Calculate pixel's world-space pos
-            vec3 pixelPosition = vec3((window.width  / 2) - x, y - (window.height / 2), focalLength);
-            
-            // Cast ray from camera through pixel
-            vec3 ray = (cameraPosition - pixelPosition) * cameraOrientation;
-            RayTriangleIntersection intersection = getClosestIntersection(cameraPosition, ray);
-
-            if (intersection.distanceFromRayOrigin != std::numeric_limits<float>::infinity()) {
-                float brightness = calcPointBrightness(intersection);
-                Colour c = shadeColour(intersection.intersectedTriangle.colour, brightness);
-                drawPixel(x, y, c.toPackedInt());
-            }
-        }
-    }
-}
 
 void update()
 {
     // Function for performing animation (shifting artifacts or moving the camera)
 }
 
-void changeRenderMode(int mode)
-{
-    renderMode = mode;
-    redrawCanvas();
-}
+
+// =================== CAMERA ACTION ========================================
 
 void tiltCamera(float angleDegrees)
 {
@@ -439,6 +441,9 @@ void spinCamera(float angleDegrees)
     redrawCanvas();
     cout << "Spinning camera " << angleDegrees << " degrees." << endl;
 }
+
+
+// ========================= EVENT HANDLER ======================================
 
 void handleEvent(SDL_Event event)
 {
@@ -506,21 +511,21 @@ void handleEvent(SDL_Event event)
         {
             cameraPosition -= cameraSpeed * forwardCO;
             redrawCanvas();
-            cout << "SCROLL UP: Camera shifted inwards." << endl;
+            cout << "SCROLL UP: Camera shifted forward." << endl;
         }
         else if(event.wheel.y < 0) // scroll down
         {
             cameraPosition += cameraSpeed * forwardCO;
             redrawCanvas();
-            cout << "SCROLL DOWN: Camera shifted outwards." << endl;
+            cout << "SCROLL DOWN: Camera shifted backwards." << endl;
         }
     }
 }
 
 
-/////////////////
-// FUNCTIONS USED A LOT
-////////////////
+
+// =========== INTERPOLATION FUNCTIONS ============================
+
 
 int calcSteps(float fromX, float fromY, float toX, float toY)
 {
@@ -529,20 +534,24 @@ int calcSteps(float fromX, float fromY, float toX, float toY)
     return std::floor(std::max(abs(xDiff), abs(yDiff)));
 }
 
+
 int calcSteps(CanvasPoint from, CanvasPoint to)
 {
     return calcSteps(from.x, from.y, to.x, to.y);
 }
+
 
 int calcSteps(vec3 from, vec3 to)
 {
     return calcSteps(from.x, from.y, to.x, to.y);
 }
 
+
 int calcSteps(TexturePoint from, TexturePoint to)
 {
     return calcSteps(from.x, from.y, to.x, to.y);
 }
+
 
 float getXFromY(float yTarget, CanvasPoint from, CanvasPoint to)
 {
@@ -558,15 +567,18 @@ float getXFromY(float yTarget, CanvasPoint from, CanvasPoint to)
     return x;
 }
 
+
 float getXFromY(float yTarget, TexturePoint from, TexturePoint to)
 {
     return getXFromY(yTarget,CanvasPoint(from.x,from.y),CanvasPoint(to.x,to.y));
 }
 
+
 uint32_t vec3ToPackedInt(vec3 pixel)
 {
     return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
 }
+
 
 vec3 packedIntToVec3(uint32_t colour)
 {
@@ -574,26 +586,7 @@ vec3 packedIntToVec3(uint32_t colour)
     return result;
 }
 
-/////////////////
-// 1D TASKS
-////////////////
 
-// 1D task 1
-void drawRedNoise()
-{
-    window.clearPixels();
-    for(int y=0; y < window.height; y++) {
-        for(int x=0; x < window.width; x++) {
-            float red = rand() % 255;
-            float green = 0.0;
-            float blue = 0.0;
-            uint32_t colour = (255<<24) + (int(red)<<16) + (int(green)<<8) + int(blue);
-            drawPixel(x, y, colour);
-        }
-    }
-}
-
-// 1D task 2
 float interpolationStep(float lastCalculated, float from, float to, int steps)
 {
     return lastCalculated + (to - from) / steps;
@@ -619,22 +612,7 @@ std::vector<CanvasPoint> interpolate(CanvasPoint from, CanvasPoint to, int steps
     return v;
 }
 
-// 1D task 3
-void greyscaleInterpolation()
-{
-    // Drawing a one dimension greyscale interpolation
-    window.clearPixels();
-    std::vector<float> v;
-    v = interpolate(0, 255, window.width);
-    for(int y = 0; y < window.height; y++) {
-        for(int x = 0; x < window.width; x++) {
-            vec3 c(v.at(x), v.at(x), v.at(x));
-            drawPixel(x, y, vec3ToPackedInt(c));
-        }
-    }
-}
 
-// 1D task 4
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
 {
     std::vector<vec3> v = { from };
@@ -647,43 +625,20 @@ std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
     return v;
 }
 
-// 1D task 5
-void rainbowInterpolation()
+
+std::vector<TexturePoint> interpolate(TexturePoint from, TexturePoint to, int steps)
 {
-    // Draw a two dimension colour interpolation
-    window.clearPixels();
-    vec3 redPixel(255,0,0);
-    vec3 bluePixel(0,0,255);
-    vec3 yellowPixel(255,255,0);
-    vec3 greenPixel(0,255,0);
-
-    drawPixel(0, window.height-1, vec3ToPackedInt(yellowPixel));
-    drawPixel(window.width-1, window.height-1, vec3ToPackedInt(greenPixel));
-
-    std::vector<vec3> v;
-    v = interpolate(redPixel, yellowPixel, window.height);
-    for(int y = 0; y < window.height; y++) {
-        drawPixel(0, y, vec3ToPackedInt(v.at(y)));
+    std::vector<TexturePoint> v = { from };
+    for (int i = 0; i < steps; i++) {
+        v.push_back(TexturePoint(interpolationStep(v.back().x, from.x, to.x, steps),
+                                 interpolationStep(v.back().y, from.y, to.y, steps)));
     }
-
-    v = interpolate(bluePixel, greenPixel, window.height);
-    for(int y=0; y < window.height; y++) {
-        drawPixel(window.width-1, y, vec3ToPackedInt(v.at(y)));
-    }
-
-    for(int y=0; y < window.height; y++) {
-        v = interpolate(packedIntToVec3(window.getPixelColour(0,y)),
-                                        packedIntToVec3(window.getPixelColour(window.width-1,y)),
-                                        window.width);
-        for(int x=0; x < window.width; x++) {
-            drawPixel(x, y, vec3ToPackedInt(v.at(x)));
-        }
-    }
+    return v;
 }
 
-/////////////////
-// 2D TASKS
-////////////////
+
+// ============ DRAWING FUNCTIONS ====================================
+ 
 
 void drawPixel(int x, int y, uint32_t pixel)
 {
@@ -692,7 +647,7 @@ void drawPixel(int x, int y, uint32_t pixel)
     }    
 }
 
-// 2D task 1
+
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
     int steps = calcSteps(from,to);
@@ -709,15 +664,6 @@ void drawLine(TexturePoint from, TexturePoint to, Colour colour)
     drawLine(CanvasPoint(from.x, from.y), CanvasPoint(to.x, to.y), colour);
 }
 
-// 2D task 2
-void drawRandomStrokedTriangle()
-{
-    CanvasTriangle t(CanvasPoint(rand() % window.width, rand() % window.height),
-                     CanvasPoint(rand() % window.width, rand() % window.height),
-                     CanvasPoint(rand() % window.width, rand() % window.height),
-                     Colour(rand() % 255, rand() % 255, rand() % 255));
-    drawStrokedTriangle(t);
-}
 
 void drawStrokedTriangle(CanvasTriangle triangle, Colour colour)
 {
@@ -726,20 +672,13 @@ void drawStrokedTriangle(CanvasTriangle triangle, Colour colour)
     drawLine(triangle.vertices[1], triangle.vertices[2], colour);
 }
 
+
 void drawStrokedTriangle(CanvasTriangle triangle)
 {
     drawStrokedTriangle(triangle, triangle.colour);
 }
 
-// 2D task 3
-void drawRandomFilledTriangle()
-{
-    CanvasTriangle t(CanvasPoint(rand() % window.width, rand() % window.height),
-                     CanvasPoint(rand() % window.width, rand() % window.height),
-                     CanvasPoint(rand() % window.width, rand() % window.height),
-                     Colour(rand() % 255, rand() % 255, rand() % 255));
-    drawFilledTriangle(t);
-}
+
 void drawFilledTriangle(CanvasTriangle t, Colour colour)
 {
     // Sort vertices by vertical position (top to bottom)
@@ -791,12 +730,89 @@ void drawFilledTriangle(CanvasTriangle t, Colour colour)
     // drawStrokedTriangle(t, t.colour);
 }
 
+
+void drawFilledTriangle(CanvasTriangle t, PixelMap img)
+{
+    // Sort vertices by vertical position (top to bottom)
+    t.sortVertices();
+
+    CanvasPoint top = t.vertices[0];
+    CanvasPoint middle = t.vertices[1];
+    CanvasPoint bottom = t.vertices[2];
+
+    // If the bottom of the triangle isn't flat, divide it
+    if (middle.y != bottom.y) {
+        // Find the missing vertex to divide the triangle into two flat-bottomed triangles
+        float divVy = middle.y;
+        float divVx = getXFromY(divVy, top, bottom);
+        CanvasPoint divV(divVx, divVy);
+
+        // Calculate this new vertex's corresponding texture point
+        int stepsTexTopToBottom = calcSteps(top.texturePoint, bottom.texturePoint);
+        float proportion = calcSteps(top, divV) / (float)calcSteps(top, bottom);
+        int stepsTexTopToDivV = std::floor(stepsTexTopToBottom * proportion);
+        std::vector<TexturePoint> texPoints = interpolate(top.texturePoint, bottom.texturePoint, stepsTexTopToBottom);
+        divV.texturePoint = texPoints.at(stepsTexTopToDivV);
+
+        // Fill the top triangle
+        fillFlatTriangle(CanvasTriangle(top, middle, divV), img);
+        
+        // Fill the bottom triangle
+        t = CanvasTriangle(middle, divV, bottom);
+    }
+
+    fillFlatTriangle(t, img);
+}
+
+
 void drawFilledTriangle(CanvasTriangle t)
 {
     drawFilledTriangle(t, t.colour);
 }
 
-// 2D Task 4
+
+void drawModelTriangles(bool fill)
+{
+    window.clearPixels();
+    for (ModelTriangle triangle : triangles) {
+        CanvasPoint displayVertices[3];
+        for (int i = 0; i < 3; i++) {
+            vec3 cameraToVertex = triangle.vertices[i] - cameraPosition;
+            cameraToVertex = cameraOrientation * cameraToVertex;
+            
+            // perspective projection
+            cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
+            cameraToVertex.y = focalLength * (cameraToVertex.y / cameraToVertex.z);
+
+            // calculate window coordinates and scale
+            //int xPos = round((window.width/2) - (cameraToVertex.x));
+            //int yPos = round((window.height/2) - (cameraToVertex.y));
+            int xPos = -cameraToVertex.x + (window.width / 2);
+            int yPos = cameraToVertex.y + (window.height / 2);
+            CanvasPoint c(xPos, yPos, triangle.texturePoints[i]);
+            
+            displayVertices[i] = c;
+        }
+        
+        CanvasTriangle t(displayVertices[0],
+                         displayVertices[1], 
+                         displayVertices[2],
+                         triangle.colour);
+        if (fill) {
+            if (t.vertices[0].texturePoint.x == -1) {
+                // If there's no texture, just fill the triangle with its colour
+                drawFilledTriangle(t);
+            } else {
+                drawFilledTriangle(t, RED);
+                drawFilledTriangle(t, texture);
+            }
+        } else { 
+            drawStrokedTriangle(t);
+        }
+    }
+}
+
+
 bool drawPixelMap(PixelMap img, int startX, int startY)
 {
     if (img.pixels.size() > 0) {
@@ -813,10 +829,104 @@ bool drawPixelMap(PixelMap img, int startX, int startY)
     return false;
 }
 
+
 bool drawPixelMap(PixelMap img)
 {
     return drawPixelMap(img, 0, 0);
 }
+
+
+void drawImage()
+{
+    PixelMap img = loadPixelMap("texture.ppm");
+    drawPixelMap(img);
+}
+
+
+
+// ================== TEXTURE MAPPING ==============================
+
+
+void fillFlatTriangle(CanvasTriangle t, PixelMap img)
+{
+    CanvasPoint top    = t.vertices[0];
+    CanvasPoint middle = t.vertices[1];
+    CanvasPoint bottom = t.vertices[2];
+    int height = abs(bottom.y - top.y);
+    
+    std::vector<CanvasPoint> canvasStartPoints;
+    std::vector<CanvasPoint> canvasEndPoints;
+    std::vector<TexturePoint> textureStartPoints;
+    std::vector<TexturePoint> textureEndPoints;
+    if (middle.y == bottom.y) {
+        // Triangle with flat bottom
+        canvasStartPoints  = interpolate(top, middle, height);
+        canvasEndPoints    = interpolate(top, bottom, height);
+        textureStartPoints = interpolate(top.texturePoint, middle.texturePoint, height);
+        textureEndPoints   = interpolate(top.texturePoint, bottom.texturePoint, height);
+    } else {
+        // Triangle with flat top
+        canvasStartPoints  = interpolate(top,    bottom, height);
+        canvasEndPoints    = interpolate(middle, bottom, height);
+        textureStartPoints = interpolate(top.texturePoint,    bottom.texturePoint, height);
+        textureEndPoints   = interpolate(middle.texturePoint, bottom.texturePoint, height);
+    }
+    
+    for (int row = 0; row < height; row++) {
+        CanvasPoint startPoint = canvasStartPoints.at(row);
+        CanvasPoint endPoint   = canvasEndPoints.at(row);
+        int rowWidth = std::round(endPoint.x - startPoint.x);
+        std::vector<TexturePoint> textureRow = interpolate(textureStartPoints.at(row),
+                                                           textureEndPoints.at(row),
+                                                           rowWidth);
+
+        for (int column = 0; column < rowWidth; column++) {
+            int x = startPoint.x + column;
+            int y = top.y + row;
+            TexturePoint texP = textureRow.at(column);
+            uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
+            drawPixel(x, y, pixel);
+        }
+    }
+}
+
+
+// ======================== SAVING TO PPM FILE================================
+void saveImage(string fn)
+{
+    PixelMap img;
+
+    img.width = window.width;
+    img.height = window.height;
+    img.pixels = {};
+    
+    for (int row = 0; row < img.height; row++) {
+        for (int column = 0; column < img.width; column++) {
+            img.pixels.push_back(window.getPixelColour(column, row));
+        }
+    }
+    
+    ofstream myfile (fn, ios::binary);
+    if (myfile.is_open()) {
+        myfile << "P6\n";
+        myfile << img.width << " " << img.height << endl;
+        myfile << "255" << endl;
+        for (int i = 0; i < (int) img.pixels.size(); i++) {
+            char r = (img.pixels.at(i) << 8)       >> 24;
+            char g = (img.pixels.at(i) << 16)  >> 24;
+            char b = (img.pixels.at(i) << 24) >> 24;
+            myfile << r;
+            myfile << g;
+            myfile << b;
+        }
+    }
+    
+    cout << "Saved window as .ppt file \"" << fn << "\"" << endl;
+}
+
+
+// =================== LOADING FUNCTIONS =====================================
+
 
 PixelMap loadPixelMap(string fn)
 {
@@ -874,141 +984,6 @@ PixelMap loadPixelMap(string fn)
     return img;
 }
 
-void drawImage()
-{
-    PixelMap img = loadPixelMap("texture.ppm");
-    drawPixelMap(img);
-}
-
-// 2D task 5
-void textureMappingTask()
-{
-    PixelMap img = loadPixelMap("texture.ppm");
-    CanvasTriangle t(CanvasPoint(160, 10,TexturePoint(195,  5)),
-                     CanvasPoint(300,230,TexturePoint(395,380)),
-                     CanvasPoint( 10,150,TexturePoint( 65,330)));
-    drawFilledTriangle(t, img);
-    drawStrokedTriangle(t);
-}
-
-std::vector<TexturePoint> interpolate(TexturePoint from, TexturePoint to, int steps)
-{
-    std::vector<TexturePoint> v = { from };
-    for (int i = 0; i < steps; i++) {
-        v.push_back(TexturePoint(interpolationStep(v.back().x, from.x, to.x, steps),
-                                 interpolationStep(v.back().y, from.y, to.y, steps)));
-    }
-    return v;
-}
-
-void fillFlatTriangle(CanvasTriangle t, PixelMap img)
-{
-    CanvasPoint top    = t.vertices[0];
-    CanvasPoint middle = t.vertices[1];
-    CanvasPoint bottom = t.vertices[2];
-    int height = abs(bottom.y - top.y);
-    
-    std::vector<CanvasPoint> canvasStartPoints;
-    std::vector<CanvasPoint> canvasEndPoints;
-    std::vector<TexturePoint> textureStartPoints;
-    std::vector<TexturePoint> textureEndPoints;
-    if (middle.y == bottom.y) {
-        // Triangle with flat bottom
-        canvasStartPoints  = interpolate(top, middle, height);
-        canvasEndPoints    = interpolate(top, bottom, height);
-        textureStartPoints = interpolate(top.texturePoint, middle.texturePoint, height);
-        textureEndPoints   = interpolate(top.texturePoint, bottom.texturePoint, height);
-    } else {
-        // Triangle with flat top
-        canvasStartPoints  = interpolate(top,    bottom, height);
-        canvasEndPoints    = interpolate(middle, bottom, height);
-        textureStartPoints = interpolate(top.texturePoint,    bottom.texturePoint, height);
-        textureEndPoints   = interpolate(middle.texturePoint, bottom.texturePoint, height);
-    }
-    
-    for (int row = 0; row < height; row++) {
-        CanvasPoint startPoint = canvasStartPoints.at(row);
-        CanvasPoint endPoint   = canvasEndPoints.at(row);
-        int rowWidth = std::round(endPoint.x - startPoint.x);
-        std::vector<TexturePoint> textureRow = interpolate(textureStartPoints.at(row),
-                                                           textureEndPoints.at(row),
-                                                           rowWidth);
-
-        for (int column = 0; column < rowWidth; column++) {
-            int x = startPoint.x + column;
-            int y = top.y + row;
-            TexturePoint texP = textureRow.at(column);
-            uint32_t pixel = img.pixels.at(std::round(texP.x) + (img.width * std::round(texP.y)));
-            drawPixel(x, y, pixel);
-        }
-    }
-}
-
-void drawFilledTriangle(CanvasTriangle t, PixelMap img)
-{
-    // Sort vertices by vertical position (top to bottom)
-    t.sortVertices();
-
-    CanvasPoint top = t.vertices[0];
-    CanvasPoint middle = t.vertices[1];
-    CanvasPoint bottom = t.vertices[2];
-
-    // If the bottom of the triangle isn't flat, divide it
-    if (middle.y != bottom.y) {
-        // Find the missing vertex to divide the triangle into two flat-bottomed triangles
-        float divVy = middle.y;
-        float divVx = getXFromY(divVy, top, bottom);
-        CanvasPoint divV(divVx, divVy);
-
-        // Calculate this new vertex's corresponding texture point
-        int stepsTexTopToBottom = calcSteps(top.texturePoint, bottom.texturePoint);
-        float proportion = calcSteps(top, divV) / (float)calcSteps(top, bottom);
-        int stepsTexTopToDivV = std::floor(stepsTexTopToBottom * proportion);
-        std::vector<TexturePoint> texPoints = interpolate(top.texturePoint, bottom.texturePoint, stepsTexTopToBottom);
-        divV.texturePoint = texPoints.at(stepsTexTopToDivV);
-
-        // Fill the top triangle
-        fillFlatTriangle(CanvasTriangle(top, middle, divV), img);
-        
-        // Fill the bottom triangle
-        t = CanvasTriangle(middle, divV, bottom);
-    }
-
-    fillFlatTriangle(t, img);
-}
-
-// Saving to PPM
-void saveImage(string fn)
-{
-    PixelMap img;
-
-    img.width = window.width;
-    img.height = window.height;
-    img.pixels = {};
-    
-    for (int row = 0; row < img.height; row++) {
-        for (int column = 0; column < img.width; column++) {
-            img.pixels.push_back(window.getPixelColour(column, row));
-        }
-    }
-    
-    ofstream myfile (fn, ios::binary);
-    if (myfile.is_open()) {
-        myfile << "P6\n";
-        myfile << img.width << " " << img.height << endl;
-        myfile << "255" << endl;
-        for (int i = 0; i < (int) img.pixels.size(); i++) {
-            char r = (img.pixels.at(i) << 8)       >> 24;
-            char g = (img.pixels.at(i) << 16)  >> 24;
-            char b = (img.pixels.at(i) << 24) >> 24;
-            myfile << r;
-            myfile << g;
-            myfile << b;
-        }
-    }
-    
-    cout << "SAVED WINDOW AS PPM IMAGE FILE \"" << fn << "\"" << endl;
-}
 
 bool loadObjFile(string filepath)
 {
@@ -1029,7 +1004,7 @@ bool loadObjFile(string filepath)
         string line;
 		char delim = ' ';
         while (getline(file, line)) {
-            // cout << line << endl;
+			
             string *tokens = split(line, delim);
             
             // o line
@@ -1057,7 +1032,6 @@ bool loadObjFile(string filepath)
                 float v2 = stof(tokens[2]) * (texture.height - 1);
                 TexturePoint tP(v1, v2);
                 texturePoints.push_back(tP);
-                //cout << "Texture point #" << texturePoints.size() << ": " << tP;
             }
             
             // f line
@@ -1119,7 +1093,7 @@ bool loadObjFile(string filepath)
             
         }
         
-        //cout << "I am finished with obj" << endl; 
+        //cout << "Loading .OBJ finished." << endl; 
         
         file.close();
     } else {
@@ -1129,6 +1103,7 @@ bool loadObjFile(string filepath)
     
     return true;
 }
+
 
 bool loadMtlFile(string filepath){
     ifstream file;
@@ -1143,16 +1118,13 @@ bool loadMtlFile(string filepath){
         string colorName;
 
         while (getline(file, line)) {
-            //cout << line.c_str();
             string *tokens = split(line, delim);
-            //int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-            //cout << tokens << endl;
             
             // newmtl line
             if (newmtl.compare(tokens[0]) == 0){
-                //cout << "MTL match" << endl;
                 colorName = tokens[1];
             }
+			
             // Kd line
             else if (kd.compare(tokens[0]) == 0){
                 //cout << "KD match" << endl;
@@ -1162,6 +1134,7 @@ bool loadMtlFile(string filepath){
                 
                 palette.push_back(Colour(colorName, r, g, b));
             }
+			
             // map_Kd line
             else if (mapkd.compare(tokens[0]) == 0){
                 //cout << "map_Kd match" << endl;
@@ -1175,7 +1148,7 @@ bool loadMtlFile(string filepath){
             }
         }
         
-        // cout << "I am finished with mtl" << endl; 
+        //cout << "Loading .MTL finished." << endl; 
         
         file.close();
     } else {
