@@ -346,6 +346,26 @@ float calcPointBrightness(RayTriangleIntersection intersection)
     float lighting_floor = 0.2f;
     brightness = std::max(lighting_floor, brightness);
 
+    /* 
+    // Hard shadows
+    
+    // Cast a ray from the point on the triangle toward the light
+    vec3 shadowRay = globalLight.position - point;
+    
+    // Get the closest intersection of this ray
+    RayTriangleIntersection shadowIntersection = getClosestIntersection(point, shadowRay);
+    
+    // Get the length of this ray
+    float rayLength = glm::length(shadowRay);
+    
+    // If the closest intersection's distance from the point is less than the entire ray's length
+    if (shadowIntersection.distanceFromRayOrigin < rayLength) {
+        // ...then this point is being obstructed by another triangle
+        brightness = 0.1f;
+        // So make the brightness low
+    }
+     */
+
     return brightness;
 }
 
