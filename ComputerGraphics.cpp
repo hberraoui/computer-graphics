@@ -15,7 +15,6 @@ using namespace std;
 using namespace glm;
 
 void draw();
-void update();
 void handleEvent(SDL_Event event);
 bool loadMtlFile(string filepath);
 bool loadObjFile(string filepath);
@@ -113,7 +112,7 @@ void redrawCanvas()
     }
 }
 
-// For the sake of Windows
+
 int WinMain(int argc, char* argv[])
 {
     main(argc, argv);
@@ -130,21 +129,13 @@ int main(int argc, char* argv[])
 
     centerCameraPosition();
     renderMode = RAYTRACE;
-    //cout << "Starting in WIREFRAME mode." << endl;
-    // renderMode = RASTER;
-    // cout << "Starting in RASTER mode." << endl;
-    // renderMode = RAYTRACE;
-    // cout << "Starting in RAYTRACE mode." << endl;
-	
     redrawCanvas();
-    
+ 
     SDL_Event event;
     while(true)
     {
         // We MUST poll for events - otherwise the window will freeze !
         if(window.pollForInputEvents(&event)) handleEvent(event);
-        update();
-        // draw();
         // Need to render the frame at the end, or nothing actually gets shown on the screen !
         window.renderFrame();
     }
@@ -333,9 +324,7 @@ void raytraceCanvas()
     lightBulb.z = (-2.517968 +-3.567968) / 2;
 	
 	// orbit feature
-	lookAt(cameraPosition, vec3(lightBulb.x, yWorldCenter, lightBulb.z), vec3(0, 1, 0)); //(this is similar to orbit effect)
-    
-    //cout << "[LIGHT POS] " << to_string(lightBulb) << endl;
+	lookAt(cameraPosition, vec3(lightBulb.x, yWorldCenter, lightBulb.z), vec3(0, 1, 0));
     
     // Iterate over every pixel in the canvas
     for (int y = 0; y < window.height; y++) {
@@ -352,22 +341,11 @@ void raytraceCanvas()
                 colour.red = brighten(colour.red, brightness);
                 colour.green = brighten(colour.green, brightness);
                 colour.blue = brighten(colour.blue, brightness);
-                // cout << "point->light dist: " << r << endl;
-                // cout << "brightness       : " << brightness << endl;
-                // cout << "colour           : " << colour << endl;
             }
             
             drawPixel(x, y, colour.toPackedInt());
         }
     }
-
-    //cout << "[CAM POS] " << to_string(cameraPosition) << endl;
-    //cout << "[CAM ORIENTATION] " << to_string(cameraOrientation);
-}
-
-void update()
-{	
-    // Function for performing animation (shifting artifacts or moving the camera)
 }
 
 void changeRenderMode(int mode)
@@ -385,7 +363,6 @@ void tiltCamera(float angleDegrees)
     
     cameraOrientation = cameraOrientation * rotateXAxis;
     redrawCanvas();
-    cout << "Tilting camera " << angleDegrees << " degrees." << endl;
 }
 
 void panCamera(float angleDegrees)
@@ -397,7 +374,6 @@ void panCamera(float angleDegrees)
     
     cameraOrientation = cameraOrientation * rotateYAxis;
     redrawCanvas();
-    cout << "Panning camera " << angleDegrees << " degrees." << endl;
 }
 
 void spinCamera(float angleDegrees)
@@ -409,13 +385,13 @@ void spinCamera(float angleDegrees)
     
     cameraOrientation = cameraOrientation * rotateZAxis;
     redrawCanvas();
-    cout << "Spinning camera " << angleDegrees << " degrees." << endl;
 }
 
 vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
 vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
 vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
 
+// fixed animation rotations 
 void left(){vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
 			cameraPosition -= cameraSpeed  * rightCO;
             redrawCanvas();
@@ -444,27 +420,24 @@ void wheelDown(){vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientatio
 			cameraPosition += cameraSpeed * forwardCO;
 			redrawCanvas();
 			window.renderFrame();}
+
+
 			
 void cornellBoxAnim(){
 	cout << "animation process started..." << endl;
 	cout << "gathering starting position..." << endl;
-
+	// predefined
 	for(int i=0; i<5; i++) {left(); cout<<i+1<<" / 15" <<endl;}
 	for(int i=0; i<5; i++) {wheelDown(); cout<<i+6<<" / 15" <<endl;}
 	for(int i=0; i<5; i++) {up(); cout<<i+11<<" / 15" <<endl;}
 	cout << "frame generation started..." << endl;
-	for(int i=0; i<210; i++) {right(); saveImage(); cout<<i+1<<" / 196" <<endl;}
-	
-	
-	
+	for(int i=0; i<180; i++) {right(); saveImage(); cout<<i+1<<" / 180" <<endl;}
+	cout << "frames generated" << endl;
+
 }
 
 void handleEvent(SDL_Event event)
 {
-	//vec3 rightCO = vec3(cameraOrientation[0][0], cameraOrientation[1][0], cameraOrientation[2][0]);
-	//vec3 upCO = vec3(cameraOrientation[0][1], cameraOrientation[1][1], cameraOrientation[2][1]);
-	//vec3 forwardCO = vec3(cameraOrientation[0][2], cameraOrientation[1][2], cameraOrientation[2][2]);
-	
     if(event.type == SDL_KEYDOWN) {
         if(event.key.keysym.sym == SDLK_LEFT) {
             left();
@@ -528,10 +501,7 @@ void handleEvent(SDL_Event event)
     }
 }
 
-
-/////////////////
-// FUNCTIONS USED A LOT
-////////////////
+// ======== INTERPOLATION FUNCTIONS ======================================
 
 int calcSteps(float fromX, float fromY, float toX, float toY)
 {
@@ -585,11 +555,6 @@ vec3 packedIntToVec3(uint32_t colour)
     return result;
 }
 
-/////////////////
-// 1D TASKS
-////////////////
-
-// 1D task 1
 void drawRedNoise()
 {
     window.clearPixels();
@@ -604,7 +569,6 @@ void drawRedNoise()
     }
 }
 
-// 1D task 2
 float interpolationStep(float lastCalculated, float from, float to, int steps)
 {
     return lastCalculated + (to - from) / steps;
@@ -630,7 +594,6 @@ std::vector<CanvasPoint> interpolate(CanvasPoint from, CanvasPoint to, int steps
     return v;
 }
 
-// 1D task 3
 void greyscaleInterpolation()
 {
     // Drawing a one dimension greyscale interpolation
@@ -645,7 +608,6 @@ void greyscaleInterpolation()
     }
 }
 
-// 1D task 4
 std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
 {
     std::vector<vec3> v = { from };
@@ -658,7 +620,6 @@ std::vector<vec3> interpolate(vec3 from, vec3 to, int steps)
     return v;
 }
 
-// 1D task 5
 void rainbowInterpolation()
 {
     // Draw a two dimension colour interpolation
@@ -692,10 +653,6 @@ void rainbowInterpolation()
     }
 }
 
-/////////////////
-// 2D TASKS
-////////////////
-
 void drawPixel(int x, int y, uint32_t pixel)
 {
     if (x < window.width && y < window.height && x > 0 && y > 0) {
@@ -703,7 +660,7 @@ void drawPixel(int x, int y, uint32_t pixel)
     }    
 }
 
-// 2D task 1
+
 void drawLine(CanvasPoint from, CanvasPoint to, Colour colour)
 {
     int steps = calcSteps(from,to);
@@ -720,7 +677,7 @@ void drawLine(TexturePoint from, TexturePoint to, Colour colour)
     drawLine(CanvasPoint(from.x, from.y), CanvasPoint(to.x, to.y), colour);
 }
 
-// 2D task 2
+
 void drawRandomStrokedTriangle()
 {
     CanvasTriangle t(CanvasPoint(rand() % window.width, rand() % window.height),
@@ -742,7 +699,7 @@ void drawStrokedTriangle(CanvasTriangle triangle)
     drawStrokedTriangle(triangle, triangle.colour);
 }
 
-// 2D task 3
+
 void drawRandomFilledTriangle()
 {
     CanvasTriangle t(CanvasPoint(rand() % window.width, rand() % window.height),
@@ -807,7 +764,7 @@ void drawFilledTriangle(CanvasTriangle t)
     drawFilledTriangle(t, t.colour);
 }
 
-// 2D Task 4
+
 bool drawPixelMap(PixelMap img, int startX, int startY)
 {
     if (img.pixels.size() > 0) {
@@ -890,16 +847,6 @@ void drawImage()
     drawPixelMap(img);
 }
 
-/* // 2D task 5
-void textureMappingTask()
-{
-    PixelMap img = loadPixelMap("texture.ppm");
-    CanvasTriangle t(CanvasPoint(160, 10,TexturePoint(195,  5)),
-                     CanvasPoint(300,230,TexturePoint(395,380)),
-                     CanvasPoint( 10,150,TexturePoint( 65,330)));
-    drawFilledTriangle(t, img);
-    drawStrokedTriangle(t);
-} */
 
 std::vector<TexturePoint> interpolate(TexturePoint from, TexturePoint to, int steps)
 {
@@ -1048,8 +995,7 @@ void saveImage(int width, int height)
             myfile << b;
         }
     }
-    
-    cout << "SAVED WINDOW AS PPM IMAGE FILE \"output.ppm\"" << endl;
+
 	frameCounter++;
 }
 
@@ -1058,6 +1004,8 @@ bool loadObjFile(string filepath)
 {
     ifstream file;
     file.open(filepath);
+	
+	cout << "Loading OBJ: " + filepath << endl;
     
     string o = "o";
     string usemtl = "usemtl";
@@ -1074,13 +1022,7 @@ bool loadObjFile(string filepath)
 		char delim = ' ';
         while (getline(file, line)) {
 			
-            cout << line << endl;
-			
             string *tokens = split(line, delim);
-            /* int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-            for (int i=0; i<numberOfTokens; i++){
-                cout << tokens[i] << endl;
-            } */
             
             // o line
             if (o.compare(tokens[0]) == 0){
@@ -1116,10 +1058,6 @@ bool loadObjFile(string filepath)
                 for (int i = 0; i < 3; i++) {
                     string *faceValues = split (tokens[i+1], '/');
                     
-                    // check size of faceValues
-                    //cout << "fv size: " << (int)faceValues->size() << endl;
-                    //cout << "fv1 value: " << faceValues[1] << endl;
-                    
                     int vertexIndex = (stoi(faceValues[0])) - 1;
                     
                     if (faceValues[1].compare("") != 0) {
@@ -1132,11 +1070,8 @@ bool loadObjFile(string filepath)
                     faceVertices[i] = vertices.at(vertexIndex);
                     
                 }
-                
-                //for (int i=0; i<3; i++){
-                    //cout << "first vertex in a triangle: " <<faceVertices[0].x << " " <<faceVertices[0].y << " " <<faceVertices[0].z << endl;
-                //}
-                
+				
+				// randomly colored triangles 
                 Colour colour(rand() % 255, rand() % 255, rand() % 255);
                 
                 if ((int)palette.size() > 0){
@@ -1147,7 +1082,6 @@ bool loadObjFile(string filepath)
                     }
                     
                     colour = palette.at(paletteIndex);
-                    //cout << colour.name << endl;
                 }
                 
                 
@@ -1170,7 +1104,7 @@ bool loadObjFile(string filepath)
             
         }
         
-        cout << "I am finished with obj" << endl; 
+        cout << "Loaded .OBJ sucessfully" << endl; 
         
         file.close();
     } else {
@@ -1193,19 +1127,14 @@ bool loadMtlFile(string filepath){
         string colorName;
 
         while (getline(file, line)) {
-            //cout << line.c_str();
             string *tokens = split(line, delim);
-            //int numberOfTokens = count(line.begin(), line.end(), delim) + 1;
-            //cout << tokens << endl;
             
             // newmtl line
             if (newmtl.compare(tokens[0]) == 0){
-                //cout << "MTL match" << endl;
                 colorName = tokens[1];
             }
             // Kd line
             else if (kd.compare(tokens[0]) == 0){
-                //cout << "KD match" << endl;
                 int r = std::round(stof(tokens[1]) * 255);
                 int g = std::round(stof(tokens[2]) * 255);
                 int b = std::round(stof(tokens[3]) * 255);
@@ -1219,7 +1148,7 @@ bool loadMtlFile(string filepath){
             }
         }
         
-        cout << "I am finished with mtl" << endl; 
+        cout << "Loaded .MTL successfully" << endl; 
         
         file.close();
     } else {
