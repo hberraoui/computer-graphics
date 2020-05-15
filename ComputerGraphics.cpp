@@ -38,8 +38,7 @@ float getXFromY(float y, CanvasPoint from, CanvasPoint to);
 bool drawPixelMap(PixelMap img, int startX, int startY);
 bool drawPixelMap(PixelMap img);
 PixelMap loadPixelMap(string fn);
-void saveImage();
-void saveImage(int width, int height);
+void saveImage(string fn);
 void textureMappingTask();
 void drawImage();
 void drawRandomFilledTriangle();
@@ -81,6 +80,7 @@ vec3 modelScale = vec3(1,1,1);
 float focalLength = window.height;
 float cameraSpeed = 2;
 float turnSpeedAngle = 45; // degrees
+int frameNumber = 0; // keep track of how many frames we have saved
 vec3 cameraPosition;
 mat3 cameraOrientation;
 PixelMap texture;
@@ -122,17 +122,17 @@ int WinMain(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     /// CORNELL BOX SETTINGS ↓↓↓
-    // modelScale = vec3(1, 1, 1);
-    // path = cornellBoxPath;
-    // loadMtlFile(cornellBoxMtlPath);
-    // loadObjFile(cornellBoxObjPath);
+    modelScale = vec3(1, 1, 1);
+    path = cornellBoxPath;
+    loadMtlFile(cornellBoxMtlPath);
+    loadObjFile(cornellBoxObjPath);
     /// CORNELL BOX SETTINGS ↑↑↑
     
     /// LOGO SETTINGS ↓↓↓
-    modelScale = vec3(0.01, 0.01, 0.01);
-    path = hackspaceLogoPath;
-    loadMtlFile(hackspaceLogoMtlPath);
-    loadObjFile(hackspaceLogoObjPath);
+    // modelScale = vec3(0.01, 0.01, 0.01);
+    // path = hackspaceLogoPath;
+    // loadMtlFile(hackspaceLogoMtlPath);
+    // loadObjFile(hackspaceLogoObjPath);
     /// LOGO SETTINGS ↑↑↑
 
     centerCameraPosition();
@@ -525,8 +525,10 @@ void handleEvent(SDL_Event event)
             centerCameraPosition();
             redrawCanvas();
             cout << "c KEY: Camera reset." << endl;
-        } else if(event.key.keysym.sym == SDLK_z) {
-            textureMappingTask();
+        } else if(event.key.keysym.sym == SDLK_p) {
+            string filename = "frame_" + to_string(frameNumber) + ".ppm";
+            saveImage(filename);
+            frameNumber++;
         }
     } else if(event.type == SDL_MOUSEBUTTONDOWN) {
         cout << "MOUSE CLICKED" << endl;
@@ -1007,17 +1009,12 @@ void drawFilledTriangle(CanvasTriangle t, PixelMap img)
 }
 
 // Saving to PPM
-void saveImage()
-{
-    saveImage(window.width, window.height);
-}
-
-void saveImage(int width, int height)
+void saveImage(string fn)
 {
     PixelMap img;
 
-    img.width = width;
-    img.height = height;
+    img.width = window.width;
+    img.height = window.height;
     img.pixels = {};
     
     for (int row = 0; row < img.height; row++) {
@@ -1026,7 +1023,7 @@ void saveImage(int width, int height)
         }
     }
     
-    ofstream myfile ("output.ppm", ios::binary);
+    ofstream myfile (fn, ios::binary);
     if (myfile.is_open()) {
         myfile << "P6\n";
         myfile << img.width << " " << img.height << endl;
@@ -1041,7 +1038,7 @@ void saveImage(int width, int height)
         }
     }
     
-    cout << "SAVED WINDOW AS PPM IMAGE FILE \"output.ppm\"" << endl;
+    cout << "SAVED WINDOW AS PPM IMAGE FILE \"" << fn << "\"" << endl;
 }
 
 bool loadObjFile(string filepath)
