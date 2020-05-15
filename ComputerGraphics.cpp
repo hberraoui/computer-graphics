@@ -204,7 +204,6 @@ void drawModelTriangles(bool fill)
     window.clearPixels();
     for (ModelTriangle triangle : triangles) {
         CanvasPoint displayVertices[3];
-        bool isVisible = true;
         for (int i = 0; i < 3; i++) {
             vec3 cameraToVertex = triangle.vertices[i] - cameraPosition;
             cameraToVertex = cameraToVertex * cameraOrientation;
@@ -212,34 +211,29 @@ void drawModelTriangles(bool fill)
             // perspective projection
             cameraToVertex.x = focalLength * (cameraToVertex.x / cameraToVertex.z);
             cameraToVertex.y = -focalLength * (cameraToVertex.y / cameraToVertex.z);
-            if (cameraToVertex.z > cameraPosition.z && cameraToVertex.x < window.width && cameraToVertex.y < window.height) {
-                isVisible = false;
-            } else {
-                // calculate window coordinates and scale
-                CanvasPoint c(round((window.width/2) - (cameraToVertex.x)),
-                              round((window.height/2) - (cameraToVertex.y)),
-                              triangle.texturePoints[i]);
-                
-                displayVertices[i] = c;
-            }
+
+            // calculate window coordinates and scale
+            int xPos = round((window.width/2) - (cameraToVertex.x));
+            int yPos = round((window.height/2) - (cameraToVertex.y));
+            CanvasPoint c(xPos, yPos, triangle.texturePoints[i]);
+            
+            displayVertices[i] = c;
         }
         
-        if (isVisible) {
-            CanvasTriangle t(displayVertices[0],
-                             displayVertices[1], 
-                             displayVertices[2],
-                             triangle.colour);
-            if (fill) {
-                if (t.vertices[0].texturePoint.x == -1) {
-                    // If there's no texture, just fill the triangle with its colour
-                    drawFilledTriangle(t);
-                } else {
-                    // drawFilledTriangle(t, RED);
-                    drawFilledTriangle(t, texture);
-                }
-            } else { 
-                drawStrokedTriangle(t);
+        CanvasTriangle t(displayVertices[0],
+                         displayVertices[1], 
+                         displayVertices[2],
+                         triangle.colour);
+        if (fill) {
+            if (t.vertices[0].texturePoint.x == -1) {
+                // If there's no texture, just fill the triangle with its colour
+                drawFilledTriangle(t);
+            } else {
+                // drawFilledTriangle(t, RED);
+                drawFilledTriangle(t, texture);
             }
+        } else { 
+            drawStrokedTriangle(t);
         }
     }
 }
@@ -440,7 +434,7 @@ void tiltCamera(float angleDegrees)
     float rotationAngle = glm::radians(angleDegrees);
     float cosA = cos(rotationAngle);
     float sinA = sin(rotationAngle);
-    mat3 rotateXAxis(vec3(1,0,0),vec3(0,cosA,-sinA),vec3(0,sinA,cosA));
+    mat3 rotateXAxis(vec3(1,0,0),vec3(0,cosA,sinA),vec3(0,-sinA,cosA));
     
     cameraOrientation = cameraOrientation * rotateXAxis;
     redrawCanvas();
@@ -452,7 +446,7 @@ void panCamera(float angleDegrees)
     float rotationAngle = glm::radians(angleDegrees);
     float cosA = cos(rotationAngle);
     float sinA = sin(rotationAngle);
-    mat3 rotateYAxis(vec3(cosA,0,sinA),vec3(0,1,0),vec3(-sinA,0,cosA));
+    mat3 rotateYAxis(vec3(cosA,0,-sinA),vec3(0,1,0),vec3(sinA,0,cosA));
     
     cameraOrientation = cameraOrientation * rotateYAxis;
     redrawCanvas();
@@ -464,7 +458,7 @@ void spinCamera(float angleDegrees)
     float rotationAngle = glm::radians(angleDegrees);
     float cosA = cos(rotationAngle);
     float sinA = sin(rotationAngle);
-    mat3 rotateZAxis(vec3(cosA,-sinA,0),vec3(sinA,cosA,0),vec3(0,0,1));
+    mat3 rotateZAxis(vec3(cosA,sinA,0),vec3(-sinA,cosA,0),vec3(0,0,1));
     
     cameraOrientation = cameraOrientation * rotateZAxis;
     redrawCanvas();
@@ -505,22 +499,22 @@ void handleEvent(SDL_Event event)
             cout << "t KEY: Switched to RAYTRACE MODE." << endl;
         } else if(event.key.keysym.sym == SDLK_a) {
             cout << "a KEY: ";
-            panCamera(turnSpeedAngle);
+            panCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_d) {
             cout << "d KEY: ";
-            panCamera(-turnSpeedAngle);
+            panCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_w) {
             cout << "w KEY: ";
-            tiltCamera(turnSpeedAngle);
+            tiltCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_s) {
             cout << "s KEY: ";
-            tiltCamera(-turnSpeedAngle);
+            tiltCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_q) {
             cout << "q KEY: ";
-            spinCamera(turnSpeedAngle);
+            spinCamera(-turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_e) {
             cout << "e KEY: ";
-            spinCamera(-turnSpeedAngle);
+            spinCamera(turnSpeedAngle);
         } else if(event.key.keysym.sym == SDLK_c) {
             centerCameraPosition();
             redrawCanvas();
