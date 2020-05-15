@@ -21,8 +21,6 @@ using namespace glm;
 
 // ===================== FUNCTIONS ========================================
 
-void draw();
-void update();
 void handleEvent(SDL_Event event);
 
 // LOADING
@@ -70,8 +68,6 @@ void saveImage(string fn);
 
 
 // MATHS
-uint32_t vec3ToPackedInt(vec3 pixel);
-vec3 packedIntToVec3(uint32_t colour);
 void centerCameraPosition();
 float calcPointBrightness(RayTriangleIntersection intersection);
 void lookAt(vec3 fromPoint, vec3 toPoint, vec3 vertical);
@@ -208,8 +204,6 @@ int main(int argc, char* argv[])
     while (true) {
         // We MUST poll for events - otherwise the window will freeze !
         if (window.pollForInputEvents(&event)) handleEvent(event);
-        update();
-        // draw();
         // Need to render the frame at the end, or nothing actually gets shown on the screen !
         window.renderFrame();
     }
@@ -398,12 +392,6 @@ RayTriangleIntersection getClosestIntersection(vec3 startPoint, vec3 ray)
 }
 
 
-void update()
-{
-    // Function for performing animation (shifting artifacts or moving the camera)
-}
-
-
 // =================== CAMERA ACTION ========================================
 
 void tiltCamera(float angleDegrees)
@@ -571,19 +559,6 @@ float getXFromY(float yTarget, CanvasPoint from, CanvasPoint to)
 float getXFromY(float yTarget, TexturePoint from, TexturePoint to)
 {
     return getXFromY(yTarget,CanvasPoint(from.x,from.y),CanvasPoint(to.x,to.y));
-}
-
-
-uint32_t vec3ToPackedInt(vec3 pixel)
-{
-    return (255<<24) + (int(pixel.x)<<16) + (int(pixel.y)<<8) + int(pixel.z);
-}
-
-
-vec3 packedIntToVec3(uint32_t colour)
-{
-    vec3 result( (colour<<8)>>24, (colour<<16)>>24, (colour<<24)>>24 );
-    return result;
 }
 
 
